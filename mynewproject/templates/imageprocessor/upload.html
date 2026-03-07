@@ -1,0 +1,309 @@
+{% extends 'imageprocessor/base.html' %}
+
+{% block title %}Upload Image - AI Image Analyzer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="text-center mb-5">
+            <h1 class="display-4 mb-3">
+                <i class="fas fa-cogs text-primary"></i>
+                AI Mechanical Part Analyzer
+            </h1>
+            <p class="lead text-muted">
+                Upload a mechanical workpiece image and AI will automatically identify manufacturing features including slots, holes, chamfers, and steps
+            </p>
+            <div class="alert alert-info mt-3">
+                <i class="fas fa-info-circle"></i>
+                <strong>Feature Detection:</strong> Automatically counts slots (槽特征), holes (孔特征), chamfers (倒角特征), and steps (阶特征)
+            </div>
+        </div>
+
+        <!-- Upload Area -->
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <form method="post" enctype="multipart/form-data" id="uploadForm">
+                    {% csrf_token %}
+                    
+                    <div class="upload-area" id="uploadArea">
+                        <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                        <h4>Drag and drop mechanical part image here or click to select</h4>
+                        <p class="text-muted">Supports JPG, PNG, GIF, BMP, WebP formats, max 10MB</p>
+                        <p class="text-muted">AI will automatically detect: slots, holes, chamfers, and step features</p>
+                        <input type="file" name="image" id="imageInput" accept="image/*" style="display: none;">
+                        <button type="button" class="btn btn-primary" id="selectBtn">
+                            <i class="fas fa-folder-open"></i> Select Image
+                        </button>
+                    </div>
+
+                    <div id="previewArea" style="display: none;">
+                        <div class="text-center mb-3">
+                            <img id="previewImage" src="#" alt="Preview" class="img-fluid rounded" style="max-height: 300px;">
+                        </div>
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-success btn-lg me-2">
+                                <i class="fas fa-magic"></i> Start Analysis
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="cancelBtn">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        {% if error %}
+        <div class="alert alert-danger mt-4">
+            <i class="fas fa-exclamation-triangle"></i>
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <!-- Recent Analysis Results -->
+        {% if recent_images %}
+        <div class="mt-5">
+            <h3 class="mb-4">
+                <i class="fas fa-history"></i>
+                Recent Analysis Results
+            </h3>
+            <div class="row">
+                {% for image in recent_images %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100">
+                        <img src="{{ image.image.url }}" class="card-img-top" alt="{{ image.original_filename }}" style="height: 200px; object-fit: cover;">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ image.original_filename|truncatechars:30 }}</h5>
+                            <p class="card-text">
+                                <small class="text-muted">
+                                    <i class="fas fa-clock"></i> {{ image.processed_at|date:"Y-m-d H:i" }}
+                                </small>
+                            </p>
+                            <a href="{% url 'imageprocessor:result' image.id %}" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-eye"></i> View Details
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 10px;
+    padding: 40px 20px;
+    text-align: center;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.upload-area:hover {
+    border-color: #0d6efd;
+    background-color: #e7f1ff;
+}
+
+.upload-area.dragover {
+    border-color: #0d6efd;
+    background-color: #e7f1ff;
+    transform: scale(1.02);
+}
+
+.upload-area h4 {
+    color: #495057;
+    margin-bottom: 10px;
+}
+
+.upload-area p {
+    margin-bottom: 20px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('uploadArea');
+    const imageInput = document.getElementById('imageInput');
+    const selectBtn = document.getElementById('selectBtn');
+    const previewArea = document.getElementById('previewArea');
+    const previewImage = document.getElementById('previewImage');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const uploadForm = document.getElementById('uploadForm');
+
+    // 拖拽功能
+    uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            // 将文件设置到input中
+            imageInput.files = files;
+            handleFileSelect(files[0]);
+        }
+    });
+
+    // 选择文件按钮点击
+    selectBtn.addEventListener('click', function() {
+        imageInput.click();
+    });
+
+    // 文件选择处理
+    imageInput.addEventListener('change', function(e) {
+        if (this.files && this.files.length > 0) {
+            handleFileSelect(this.files[0]);
+        }
+    });
+
+    // Cancel button
+    cancelBtn.addEventListener('click', function() {
+        resetUploadArea();
+    });
+
+    function handleFileSelect(file) {
+        console.log('📁 处理文件:', file.name, '大小:', file.size, '类型:', file.type);
+        
+        // 验证文件类型
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            alert('Please select a valid image file (JPG, PNG, GIF, BMP, WebP)');
+            return;
+        }
+
+        // 验证文件大小
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+            alert('File size cannot exceed 10MB');
+            return;
+        }
+
+        // 显示预览
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImage.src = e.target.result;
+            uploadArea.style.display = 'none';
+            previewArea.style.display = 'block';
+            console.log('✅ 预览显示完成');
+        };
+        reader.onerror = function() {
+            alert('Failed to read file');
+            resetUploadArea();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetUploadArea() {
+        uploadArea.style.display = 'block';
+        previewArea.style.display = 'none';
+        previewImage.src = '#';
+        imageInput.value = '';
+        console.log('🔄 上传区域已重置');
+    }
+
+    // 创建新的文件输入框（简化版本）
+    function createNewFileInput(file) {
+        console.log('🔧 创建新的文件输入框（简化版）');
+        
+        // 创建新的input元素
+        const newInput = document.createElement('input');
+        newInput.type = 'file';
+        newInput.name = 'image';
+        newInput.className = imageInput.className;
+        newInput.style.display = 'none';
+        newInput.accept = 'image/*';
+        
+        try {
+            // 设置文件到新input
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            newInput.files = dataTransfer.files;
+            
+            // 替换旧的input
+            imageInput.parentNode.replaceChild(newInput, imageInput);
+            imageInput = newInput;
+            
+            // 重新绑定change事件
+            imageInput.addEventListener('change', function(e) {
+                if (this.files && this.files.length > 0) {
+                    handleFileSelect(this.files[0]);
+                }
+            });
+            
+            console.log('✅ 新的input创建成功');
+        } catch (err) {
+            console.error('创建新input失败:', err);
+            alert('File handling error, please try again');
+        }
+    }
+
+    function resetUploadArea() {
+        uploadArea.style.display = 'block';
+        previewArea.style.display = 'none';
+        previewImage.src = '#';
+        imageInput.value = '';
+        console.log('🔄 上传区域已重置');
+    }
+
+    // 表单提交
+    uploadForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // 验证文件
+        if (!imageInput.files || imageInput.files.length === 0) {
+            alert('Please select an image file first');
+            return;
+        }
+        
+        console.log('✅ 文件验证通过:', imageInput.files[0].name);
+        
+        const formData = new FormData(this);
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        
+        // Show loading state
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+        submitBtn.disabled = true;
+
+        fetch('{% url "imageprocessor:api_upload" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Redirect to result page
+                window.location.href = '{% url "imageprocessor:result" 0 %}'.replace('/0/', '/' + data.data.id + '/');
+            } else {
+                alert('Analysis failed: ' + data.error);
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Analysis failed, please try again');
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    });
+});
+</script>
+{% endblock %}

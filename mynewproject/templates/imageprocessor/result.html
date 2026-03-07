@@ -1,0 +1,142 @@
+{% extends 'imageprocessor/base.html' %}
+
+{% block title %}Mechanical Part Analysis - AI Analyzer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="mb-4">
+            <a href="{% url 'imageprocessor:upload' %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left"></i> Back to Upload
+            </a>
+        </div>
+
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-industry"></i> Mechanical Part Feature Analysis
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="mb-3">
+                            <i class="fas fa-image"></i> Original Image
+                        </h5>
+                        <div class="text-center">
+                            <img src="{{ processed_image.image.url }}" 
+                                 class="img-fluid rounded shadow-sm" 
+                                 alt="Processed Image"
+                                 style="max-height: 400px;">
+                        </div>
+                        <div class="mt-3">
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Filename:</strong></td>
+                                    <td>{{ processed_image.original_filename }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Upload Time:</strong></td>
+                                    <td>{{ processed_image.uploaded_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Processing Time:</strong></td>
+                                    <td>{{ processed_image.processed_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Status:</strong></td>
+                                    <td>
+                                        {% if processed_image.status == 'completed' %}
+                                            <span class="badge bg-success">Completed</span>
+                                        {% elif processed_image.status == 'processing' %}
+                                            <span class="badge bg-warning">Processing</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Failed</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5 class="mb-3">
+                            <i class="fas fa-cogs"></i> Manufacturing Feature Analysis
+                        </h5>
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-tools"></i>
+                            <strong>Feature Detection Results:</strong> Slot count, hole count, chamfer count, and step count
+                        </div>
+                        {% if processed_image.status == 'completed' %}
+                            <div class="result-content">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <p class="mb-0">{{ processed_image.result|linebreaksbr }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <h6 class="mb-3">Quick Actions:</h6>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="copyResult()">
+                                        <i class="fas fa-copy"></i> Copy Feature Counts
+                                    </button>
+                                    <a href="{% url 'imageprocessor:upload' %}" class="btn btn-outline-success btn-sm">
+                                        <i class="fas fa-plus"></i> Analyze New Image
+                                    </a>
+                                    <a href="{% url 'imageprocessor:history' %}" class="btn btn-outline-info btn-sm">
+                                        <i class="fas fa-history"></i> View History
+                                    </a>
+                                </div>
+                            </div>
+                        {% elif processed_image.status == 'processing' %}
+                            <div class="text-center">
+                                <div class="spinner-border text-primary mb-3" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p>Analyzing mechanical features, please wait...</p>
+                                <p class="text-muted">Detecting slots, holes, chamfers, and steps...</p>
+                                <button class="btn btn-primary" onclick="location.reload()">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-danger">
+                                <h6><i class="fas fa-exclamation-triangle"></i> Analysis Failed</h6>
+                                <p>{{ processed_image.result|default:"Unknown error occurred, please try again" }}</p>
+                                <a href="{% url 'imageprocessor:upload' %}" class="btn btn-danger">
+                                    <i class="fas fa-redo"></i> Re-analyze
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyResult() {
+    const resultText = `{{ processed_image.result|escapejs }}`;
+    navigator.clipboard.writeText(resultText).then(function() {
+        // Show success message
+        const btn = event.target.closest('button');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-success');
+        
+        setTimeout(function() {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-primary');
+        }, 2000);
+    }).catch(function(err) {
+        console.error('Failed to copy: ', err);
+        alert('Copy failed, please copy manually');
+    });
+}
+</script>
+{% endblock %}

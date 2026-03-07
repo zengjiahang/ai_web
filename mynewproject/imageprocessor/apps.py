@@ -1,0 +1,7 @@
+from django.apps import AppConfig
+
+
+class ImageprocessorConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'imageprocessor'
+    verbose_name = 'Image Processor'

@@ -1,0 +1,156 @@
+{% extends 'imageprocessor/base.html' %}
+
+{% block title %}Mechanical Part Analysis History - AI Analyzer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="fas fa-history"></i> Mechanical Part Analysis History
+            </h2>
+            <a href="{% url 'imageprocessor:upload' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Analyze New Part
+            </a>
+        </div>
+
+        {% if images %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Part Image</th>
+                            <th>Upload Time</th>
+                            <th>Analysis Status</th>
+                            <th>Feature Counts</th>
+                            <th>Quick Result</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for image in images %}
+                        <tr>
+                            <td>
+                                <img src="{{ image.image.url }}" 
+                                     alt="{{ image.original_filename }}" 
+                                     class="img-thumbnail" 
+                                     style="width: 80px; height: 60px; object-fit: cover;">
+                            </td>
+                            <td>
+                                <small>{{ image.uploaded_at|date:"Y-m-d" }}<br>{{ image.uploaded_at|time:"H:i" }}</small>
+                            </td>
+                            <td>
+                                {% if image.status == 'completed' %}
+                                    <span class="badge bg-success">Completed</span>
+                                {% elif image.status == 'processing' %}
+                                    <span class="badge bg-warning">Processing</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Failed</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if image.status == 'completed' %}
+                                    <div class="feature-summary">
+                                        {% if image.result %}
+                                            {% if "SLOTS:" in image.result %}
+                                                <span class="badge bg-primary me-1">槽: {{ image.result|slice:"80:"|truncatechars:10|default:"检测中" }}</span>
+                                            {% endif %}
+                                            {% if "HOLES:" in image.result %}
+                                                <span class="badge bg-success me-1">孔: {{ image.result|slice:"90:"|truncatechars:10|default:"检测中" }}</span>
+                                            {% endif %}
+                                            {% if "CHAMFERS:" in image.result %}
+                                                <span class="badge bg-warning me-1">倒角: {{ image.result|slice:"100:"|truncatechars:10|default:"检测中" }}</span>
+                                            {% endif %}
+                                            {% if "STEPS:" in image.result %}
+                                                <span class="badge bg-info">阶: {{ image.result|slice:"110:"|truncatechars:10|default:"检测中" }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">分析中...</span>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if image.result %}
+                                    <div style="max-width: 300px; max-height: 60px; overflow: hidden;">
+                                        <small class="text-muted">{{ image.result|truncatechars:80 }}</small>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">No analysis</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group-vertical btn-group-sm" role="group">
+                                    <a href="{% url 'imageprocessor:result' image.id %}" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-eye"></i> View Details
+                                    </a>
+                                    {% if image.status == 'failed' %}
+                                        <a href="{% url 'imageprocessor:upload' %}" class="btn btn-outline-warning btn-sm">
+                                            <i class="fas fa-redo"></i> Retry
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if images.has_other_pages %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if images.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ images.previous_page_number }}">
+                                <i class="fas fa-chevron-left"></i> Previous
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link"><i class="fas fa-chevron-left"></i> Previous</span>
+                        </li>
+                    {% endif %}
+
+                    {% for num in images.paginator.page_range %}
+                        {% if images.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if images.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ images.next_page_number }}">
+                                Next <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">Next <i class="fas fa-chevron-right"></i></span>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                <h4 class="text-muted">No processing records</h4>
+                <p class="text-muted">You haven't uploaded any images yet</p>
+                <a href="{% url 'imageprocessor:upload' %}" class="btn btn-primary">
+                    <i class="fas fa-upload"></i> Upload Image
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

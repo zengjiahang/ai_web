@@ -6,7 +6,7 @@
 <div class="row justify-content-center">
     <div class="col-lg-10">
         <div class="mb-4">
-            <a href="{% url 'imageprocessor:upload' %}" class="btn btn-outline-primary">
+            <a href="{% url 'imageprocessor:user_upload' %}" class="btn btn-outline-primary">
                 <i class="fas fa-arrow-left"></i> Back to Upload
             </a>
         </div>
@@ -80,16 +80,34 @@
                                 <h6 class="mb-3">Quick Actions:</h6>
                                 <div class="d-flex gap-2 flex-wrap">
                                     <button class="btn btn-outline-primary btn-sm" onclick="copyResult()">
-                                        <i class="fas fa-copy"></i> Copy Feature Counts
+                                        <i class="fas fa-copy"></i> 复制特征计数
                                     </button>
-                                    <a href="{% url 'imageprocessor:upload' %}" class="btn btn-outline-success btn-sm">
-                                        <i class="fas fa-plus"></i> Analyze New Image
+                                    <a href="{% url 'imageprocessor:user_upload' %}" class="btn btn-outline-success btn-sm">
+                                        <i class="fas fa-plus"></i> 分析新图片
                                     </a>
                                     <a href="{% url 'imageprocessor:history' %}" class="btn btn-outline-info btn-sm">
-                                        <i class="fas fa-history"></i> View History
+                                        <i class="fas fa-history"></i> 查看历史
+                                    </a>
+                                    <a href="{% url 'imageprocessor:rag_annotation' processed_image.id %}" class="btn btn-outline-warning btn-sm">
+                                        <i class="fas fa-edit"></i> RAG标注
                                     </a>
                                 </div>
                             </div>
+                            
+                            <!-- RAG增强信息 -->
+                            {% if 'RAG增强分析信息' in processed_image.result %}
+                            <div class="mt-4">
+                                <div class="alert alert-success">
+                                    <h6 class="alert-heading">
+                                        <i class="fas fa-brain"></i> RAG Enhanced Analysis
+                                    </h6>
+                                    <p class="mb-0">This analysis was enhanced using multi-modal RAG system with similar part references.</p>
+                                    <a href="{% url 'imageprocessor:rag_feature_list' %}" class="alert-link">
+                                        <i class="fas fa-search"></i> 查看RAG特征
+                                    </a>
+                                </div>
+                            </div>
+                            {% endif %}
                         {% elif processed_image.status == 'processing' %}
                             <div class="text-center">
                                 <div class="spinner-border text-primary mb-3" role="status">
@@ -105,7 +123,7 @@
                             <div class="alert alert-danger">
                                 <h6><i class="fas fa-exclamation-triangle"></i> Analysis Failed</h6>
                                 <p>{{ processed_image.result|default:"Unknown error occurred, please try again" }}</p>
-                                <a href="{% url 'imageprocessor:upload' %}" class="btn btn-danger">
+                                <a href="{% url 'imageprocessor:user_upload' %}" class="btn btn-danger">
                                     <i class="fas fa-redo"></i> Re-analyze
                                 </a>
                             </div>

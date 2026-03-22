@@ -1,0 +1,287 @@
+{% extends 'imageprocessor/base.html' %}
+
+{% block title %}RAG特征详情 - AI机械零件分析{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="fas fa-search"></i> RAG特征详情</h2>
+                <div>
+                    <a href="{% url 'imageprocessor:rag_feature_list' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left"></i> 返回列表
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-image"></i> 原始图片</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <img src="{{ processed_image.image.url }}" 
+                             alt="机械零件图片" 
+                             class="img-fluid rounded"
+                             style="max-height: 400px; cursor: pointer;"
+                             onclick="showImageModal('{{ processed_image.image.url }}')"
+                             title="点击查看大图">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted d-block">图片ID: #{{ processed_image.id }}</small>
+                            <small class="text-muted d-block">上传时间: {{ processed_image.uploaded_at|date:"Y-m-d H:i" }}</small>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted d-block">状态: {{ processed_image.status|title }}</small>
+                            <small class="text-muted d-block">上传类型: {{ processed_image.upload_type|title }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar"></i> 特征统计</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 class="text-primary">{{ rag_feature.slot_count }}</h4>
+                                <small class="text-muted">槽特征</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 class="text-success">{{ rag_feature.hole_count }}</h4>
+                                <small class="text-muted">孔特征</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 class="text-info">{{ rag_feature.chamfer_count }}</h4>
+                                <small class="text-muted">倒角特征</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 class="text-warning">{{ rag_feature.shoulder_count }}</h4>
+                                <small class="text-muted">肩特征</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 class="text-danger">{{ rag_feature.step_count }}</h4>
+                                <small class="text-muted">阶特征</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 class="text-dark">{{ rag_feature.get_total_features }}</h4>
+                                <small class="text-muted">总计</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow mt-3">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> 审核信息</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted d-block">审核状态: 
+                                {% if rag_feature.approval_status == 'approved' %}
+                                    <span class="badge bg-success">已审核</span>
+                                {% elif rag_feature.approval_status == 'rejected' %}
+                                    <span class="badge bg-danger">已拒绝</span>
+                                {% else %}
+                                    <span class="badge bg-warning">待审核</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="col-md-6">
+                            {% if rag_feature.reviewed_by %}
+                                <small class="text-muted d-block">审核者: {{ rag_feature.reviewed_by }}</small>
+                            {% endif %}
+                            {% if rag_feature.reviewed_at %}
+                                <small class="text-muted d-block">审核时间: {{ rag_feature.reviewed_at|date:"Y-m-d H:i" }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if rag_feature.review_notes %}
+                        <hr>
+                        <small class="text-muted">审核备注: {{ rag_feature.review_notes }}</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if similar_images %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-images"></i> 相似图片 ({{ similar_images|length }}张)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for similar in similar_images %}
+                        <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header bg-light">
+                                    <small class="text-muted">相似度: {{ similar.similarity|floatformat:1 }}%</small>
+                                </div>
+                                <div class="card-body text-center">
+                                    <img src="{{ similar.image.image.url }}" 
+                                         alt="相似图片" 
+                                         class="img-fluid rounded mb-2"
+                                         style="max-height: 120px; cursor: pointer;"
+                                         onclick="showImageModal('{{ similar.image.image.url }}')"
+                                         title="点击查看大图">
+                                    <div class="small text-muted">
+                                        <div>槽:{{ similar.features.slot_count }} 孔:{{ similar.features.hole_count }}</div>
+                                        <div>倒角:{{ similar.features.chamfer_count }} 肩:{{ similar.features.shoulder_count }}</div>
+                                        <div>阶:{{ similar.features.step_count }}</div>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-light">
+                                    <a href="{% url 'imageprocessor:rag_feature_detail' similar.features.id %}" 
+                                       class="btn btn-sm btn-outline-primary w-100">
+                                        <i class="fas fa-eye"></i> 查看详情
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if rag_feature.feature_vector %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-vector-square"></i> 特征向量</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>槽位置</h6>
+                            <pre class="bg-light p-2 rounded"><small>{{ rag_feature.slot_positions|default:"无" }}</small></pre>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>孔位置</h6>
+                            <pre class="bg-light p-2 rounded"><small>{{ rag_feature.hole_positions|default:"无" }}</small></pre>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6>倒角位置</h6>
+                            <pre class="bg-light p-2 rounded"><small>{{ rag_feature.chamfer_positions|default:"无" }}</small></pre>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>肩位置</h6>
+                            <pre class="bg-light p-2 rounded"><small>{{ rag_feature.shoulder_positions|default:"无" }}</small></pre>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6>阶位置</h6>
+                            <pre class="bg-light p-2 rounded"><small>{{ rag_feature.step_positions|default:"无" }}</small></pre>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>特征向量</h6>
+                            <pre class="bg-light p-2 rounded"><small>{% if rag_feature.feature_vector %}{{ rag_feature.feature_vector|truncatechars:100 }}{% else %}无{% endif %}</small></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'imageprocessor:rag_feature_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-list"></i> 返回列表
+                </a>
+                <div class="btn-group">
+                    <a href="{% url 'imageprocessor:rag_annotation' processed_image.id %}" class="btn btn-outline-primary">
+                        <i class="fas fa-edit"></i> 编辑标注
+                    </a>
+                    <button type="button" class="btn btn-outline-danger" onclick="confirmDeleteFeature({{ rag_feature.id }})">
+                        <i class="fas fa-trash"></i> 删除特征
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 图片预览模态框 -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">图片预览</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalImage" src="" alt="图片预览" class="img-fluid">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showImageModal(imageUrl) {
+    document.getElementById('modalImage').src = imageUrl;
+    new bootstrap.Modal(document.getElementById('imageModal')).show();
+}
+
+function confirmDeleteFeature(featureId) {
+    if (confirm('确定要删除这个RAG特征吗？此操作不可恢复。')) {
+        fetch(`/rag/delete/${featureId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('特征删除成功！');
+                window.location.href = '{% url "imageprocessor:rag_feature_list" }';
+            } else {
+                alert('删除失败: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('删除失败: ' + error);
+        });
+    }
+}
+</script>
+{% endblock %}

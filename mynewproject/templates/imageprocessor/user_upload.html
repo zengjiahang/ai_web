@@ -1,0 +1,320 @@
+{% extends 'imageprocessor/base.html' %}
+
+{% block title %}用户上传 - AI机械零件分析器{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="text-center mb-5">
+            <h1 class="display-4 mb-3">
+                <i class="fas fa-cogs text-primary"></i>
+                AI机械零件分析器
+            </h1>
+            <p class="lead text-muted">
+                上传机械零件图片，AI将自动识别制造特征，包括槽、孔、倒角、肩和阶等
+            </p>
+            <div class="alert alert-info mt-3">
+                <i class="fas fa-info-circle"></i>
+                <strong>特征检测：</strong> 自动计数槽特征、孔特征、倒角特征、肩特征和阶特征
+            </div>
+            <div class="alert alert-success mt-2">
+                <i class="fas fa-brain"></i>
+                <strong>RAG增强：</strong> 多模态RAG系统提供基于相似性的分析增强
+            </div>
+        </div>
+
+        <!-- 上传区域 -->
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <form method="post" enctype="multipart/form-data" id="uploadForm">
+                    {% csrf_token %}
+                    
+                    <div class="upload-area" id="uploadArea">
+                        <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                        <h4>拖拽机械零件图片到此处或点击选择</h4>
+                        <p class="text-muted">支持 JPG, PNG, GIF, BMP, WebP 格式，最大10MB</p>
+                        <p class="text-muted">AI将自动检测：槽、孔、倒角、肩和阶特征</p>
+                        <input type="file" name="image" id="imageInput" accept="image/*" style="display: none;">
+                        <button type="button" class="btn btn-primary" id="selectBtn">
+                            <i class="fas fa-folder-open"></i> 选择图片
+                        </button>
+                    </div>
+
+                    <div id="previewArea" style="display: none;">
+                        <div class="text-center mb-4">
+                            <img id="previewImage" class="img-fluid rounded shadow-sm" style="max-height: 300px;">
+                        </div>
+                        <div class="d-flex justify-content-center gap-2">
+                            <button type="submit" class="btn btn-success" id="uploadBtn">
+                                <i class="fas fa-upload"></i> 开始分析
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="cancelBtn">
+                                <i class="fas fa-times"></i> 取消
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- 错误信息显示 -->
+                <div id="errorAlert" class="alert alert-danger mt-3" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span id="errorMessage"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近处理图片 -->
+        {% if recent_images %}
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-history"></i> 最近处理的图片
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for image in recent_images %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <img src="{{ image.image.url }}" class="card-img-top" alt="处理图片" style="max-height: 150px; object-fit: cover;">
+                            <div class="card-body">
+                                <h6 class="card-title">图片 #{{ image.id }}</h6>
+                                <p class="card-text">
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock"></i> {{ image.processed_at|date:"Y-m-d H:i" }}
+                                    </small>
+                                </p>
+                                <div class="d-flex gap-1">
+                                    <a href="{% url 'imageprocessor:result' image.id %}" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-eye"></i> 查看结果
+                                    </a>
+                                    {% if image.rag_features %}
+                                    <a href="{% url 'imageprocessor:rag_annotation' image.id %}" class="btn btn-outline-warning btn-sm">
+                                        <i class="fas fa-edit"></i> RAG标注
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{% url 'imageprocessor:history' %}" class="btn btn-outline-info">
+                        <i class="fas fa-list"></i> 查看全部历史
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 功能介绍 -->
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-lightbulb"></i> 功能特色
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-robot fa-2x text-primary mb-2"></i>
+                        <h6>AI智能分析</h6>
+                        <p class="small text-muted">基于Kimi视觉大模型的智能特征识别</p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-search fa-2x text-success mb-2"></i>
+                        <h6>RAG增强</h6>
+                        <p class="small text-muted">基于相似图片的检索增强分析</p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="fas fa-chart-bar fa-2x text-info mb-2"></i>
+                        <h6>精确计数</h6>
+                        <p class="small text-muted">准确的特征数量和位置统计</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 系统介绍 -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle"></i> 系统说明
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-2">
+                    <strong>AI机械零件分析器</strong> 使用先进的视觉大模型技术，自动识别机械零件中的制造特征。
+                </p>
+                <ul class="small text-muted mb-0">
+                    <li>支持识别：槽特征、孔特征、倒角特征、肩特征、阶特征</li>
+                    <li>基于RAG（检索增强生成）技术，提供相似零件参考分析</li>
+                    <li>高精度特征计数和位置标注</li>
+                    <li>支持多种图片格式，最大10MB</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 10px;
+    padding: 40px 20px;
+    text-align: center;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.upload-area:hover {
+    border-color: #0d6efd;
+    background-color: #e7f1ff;
+}
+
+.upload-area.dragover {
+    border-color: #0d6efd;
+    background-color: #e7f1ff;
+    transform: scale(1.02);
+}
+
+.upload-area h4 {
+    color: #495057;
+    margin-bottom: 10px;
+}
+
+.upload-area p {
+    margin-bottom: 20px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('uploadArea');
+    const imageInput = document.getElementById('imageInput');
+    const selectBtn = document.getElementById('selectBtn');
+    const previewArea = document.getElementById('previewArea');
+    const previewImage = document.getElementById('previewImage');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadForm = document.getElementById('uploadForm');
+    const errorAlert = document.getElementById('errorAlert');
+    const errorMessage = document.getElementById('errorMessage');
+
+    function showError(message) {
+        errorMessage.textContent = message;
+        errorAlert.style.display = 'block';
+        setTimeout(() => {
+            errorAlert.style.display = 'none';
+        }, 5000);
+    }
+
+    function hideError() {
+        errorAlert.style.display = 'none';
+    }
+
+    function showPreview(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImage.src = e.target.result;
+            uploadArea.style.display = 'none';
+            previewArea.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetUpload() {
+        imageInput.value = '';
+        uploadArea.style.display = 'block';
+        previewArea.style.display = 'none';
+        hideError();
+    }
+
+    // 点击选择按钮
+    selectBtn.addEventListener('click', function() {
+        imageInput.click();
+    });
+
+    // 文件选择
+    imageInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            // 验证文件类型
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                showError('请选择有效的图片文件 (JPG, PNG, GIF, BMP, WebP)');
+                return;
+            }
+
+            // 验证文件大小 (10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                showError('图片文件大小不能超过10MB');
+                return;
+            }
+
+            showPreview(file);
+        }
+    });
+
+    // 取消按钮
+    cancelBtn.addEventListener('click', resetUpload);
+
+    // 拖拽上传
+    uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            
+            // 验证文件类型
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                showError('请拖拽有效的图片文件 (JPG, PNG, GIF, BMP, WebP)');
+                return;
+            }
+
+            // 验证文件大小
+            if (file.size > 10 * 1024 * 1024) {
+                showError('图片文件大小不能超过10MB');
+                return;
+            }
+
+            imageInput.files = files;
+            showPreview(file);
+        }
+    });
+
+    // 表单提交
+    uploadForm.addEventListener('submit', function(e) {
+        if (!imageInput.files[0]) {
+            e.preventDefault();
+            showError('请先选择要上传的图片');
+            return;
+        }
+
+        // 显示上传状态
+        uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 分析中...';
+        uploadBtn.disabled = true;
+        cancelBtn.disabled = true;
+    });
+});
+</script>
+{% endblock %}

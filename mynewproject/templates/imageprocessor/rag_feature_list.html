@@ -1,0 +1,378 @@
+{% extends 'imageprocessor/base.html' %}
+
+{% block title %}RAG特征管理 - AI图片分析器{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">🔍 RAG特征管理</h2>
+            <p class="text-muted">管理和查看所有RAG特征数据，支持删除和修改操作。</p>
+            
+            <!-- 快速导航 -->
+            <div class="btn-group mb-3" role="group">
+                <a href="{% url 'imageprocessor:admin_rag_upload' %}" class="btn btn-outline-warning">
+                    <i class="fas fa-plus"></i> 新增RAG数据
+                </a>
+                <a href="{% url 'imageprocessor:rag_review' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-check-circle"></i> 特征审核
+                </a>
+                <a href="{% url 'imageprocessor:user_upload' %}" class="btn btn-outline-info">
+                    <i class="fas fa-arrow-left"></i> 返回用户界面
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 统计信息 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center bg-primary text-white">
+                <div class="card-body">
+                    <h4 class="mb-0">{{ total_features }}</h4>
+                    <small>总特征数量</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-success text-white">
+                <div class="card-body">
+                    <h4 class="mb-0">{{ annotated_features }}</h4>
+                    <small>已审核特征</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-info text-white">
+                <div class="card-body">
+                    <h4 class="mb-0">{{ feature_stats.total_slots }}</h4>
+                    <small>槽特征总数</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-warning text-white">
+                <div class="card-body">
+                    <h4 class="mb-0">{{ feature_stats.total_holes }}</h4>
+                    <small>孔特征总数</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 详细统计 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📊 特征统计详情</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-2 text-center">
+                            <h4 class="text-primary">{{ feature_stats.total_slots }}</h4>
+                            <small class="text-muted">槽特征</small>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <h4 class="text-success">{{ feature_stats.total_holes }}</h4>
+                            <small class="text-muted">孔特征</small>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <h4 class="text-info">{{ feature_stats.total_chamfers }}</h4>
+                            <small class="text-muted">倒角特征</small>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <h4 class="text-warning">{{ feature_stats.total_shoulders }}</h4>
+                            <small class="text-muted">肩特征</small>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <h4 class="text-danger">{{ feature_stats.total_steps }}</h4>
+                            <small class="text-muted">阶特征</small>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <h4 class="text-secondary">
+                                {{ feature_stats.total_slots|add:feature_stats.total_holes|add:feature_stats.total_chamfers|add:feature_stats.total_shoulders|add:feature_stats.total_steps }}
+                            </h4>
+                            <small class="text-muted">总特征</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 特征列表 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">📋 RAG特征列表</h5>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'imageprocessor:admin_rag_upload' %}" class="btn btn-sm btn-outline-warning">
+                            <i class="fas fa-plus"></i> 新增数据
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmBulkDelete()">
+                            <i class="fas fa-trash"></i> 批量删除
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if rag_features %}
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="ragFeaturesTable">
+                                <thead>
+                                    <tr>
+                                        <th>
+                                            <input type="checkbox" id="selectAll" onclick="toggleAllSelection()">
+                                        </th>
+                                        <th>图片</th>
+                                        <th>特征统计</th>
+                                        <th>状态</th>
+                                        <th>创建时间</th>
+                                        <th>审核信息</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for rag_feature in rag_features %}
+                                    <tr id="feature-{{ rag_feature.id }}">
+                                        <td>
+                                            <input type="checkbox" name="selected_features" value="{{ rag_feature.id }}">
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <img src="{{ rag_feature.processed_image.image.url }}" 
+                                                     alt="图片" 
+                                                     class="img-thumbnail me-3"
+                                                     style="width: 60px; height: 45px; object-fit: cover; cursor: pointer;"
+                                                     onclick="showImageModal('{{ rag_feature.processed_image.image.url }}')"
+                                                     title="点击查看大图">
+                                                <div>
+                                                    <div><strong>图片ID: #{{ rag_feature.processed_image.id }}</strong></div>
+                                                    <small class="text-muted">
+                                                        上传: {{ rag_feature.processed_image.uploaded_at|date:"Y-m-d H:i" }}
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <small class="d-block">
+                                                <span class="badge bg-primary">槽:{{ rag_feature.slot_count }}</span>
+                                                <span class="badge bg-success">孔:{{ rag_feature.hole_count }}</span>
+                                                <span class="badge bg-info">倒角:{{ rag_feature.chamfer_count }}</span>
+                                                <span class="badge bg-warning">肩:{{ rag_feature.shoulder_count }}</span>
+                                                <span class="badge bg-danger">阶:{{ rag_feature.step_count }}</span>
+                                            </small>
+                                            <small class="text-muted d-block mt-1">
+                                                总计: {{ rag_feature.get_total_features }}
+                                            </small>
+                                            {% if rag_feature.has_positions %}
+                                                <small class="text-success d-block mt-1">
+                                                    <i class="fas fa-map-marker-alt"></i> 已标注位置
+                                                </small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if rag_feature.approval_status == 'approved' %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-check"></i> 已审核
+                                                </span>
+                                            {% elif rag_feature.approval_status == 'rejected' %}
+                                                <span class="badge bg-danger">
+                                                    <i class="fas fa-times"></i> 已拒绝
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-warning">
+                                                    <i class="fas fa-clock"></i> 待审核
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ rag_feature.created_at|date:"Y-m-d" }}<br>
+                                                {{ rag_feature.created_at|time:"H:i" }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {% if rag_feature.reviewed_by %}
+                                                <small class="d-block">
+                                                    <strong>审核者:</strong> {{ rag_feature.reviewed_by }}
+                                                </small>
+                                            {% endif %}
+                                            {% if rag_feature.reviewed_at %}
+                                                <small class="text-muted d-block">
+                                                    {{ rag_feature.reviewed_at|date:"Y-m-d H:i" }}
+                                                </small>
+                                            {% endif %}
+                                            {% if rag_feature.review_notes %}
+                                                <small class="text-muted d-block">
+                                                    <strong>备注:</strong> {{ rag_feature.review_notes|truncatechars:50 }}
+                                                </small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'imageprocessor:rag_annotation' rag_feature.processed_image.id %}" 
+                                                   class="btn btn-outline-primary" title="编辑标注">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a href="{% url 'imageprocessor:result' rag_feature.processed_image.id %}" 
+                                                   class="btn btn-outline-secondary" title="查看结果" target="_blank">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <button type="button" 
+                                                        class="btn btn-outline-danger" 
+                                                        title="删除特征"
+                                                        onclick="confirmDeleteFeature({{ rag_feature.id }})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- 分页 -->
+                        {% if rag_features.has_other_pages %}
+                        <nav aria-label="Page navigation">
+                            <ul class="pagination justify-content-center">
+                                {% if rag_features.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ rag_features.previous_page_number }}">上一页</a>
+                                    </li>
+                                {% endif %}
+                                
+                                {% for num in rag_features.paginator.page_range %}
+                                    {% if rag_features.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if rag_features.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ rag_features.next_page_number }}">下一页</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                        
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">暂无RAG特征</h5>
+                            <p class="text-muted">请先录入一些RAG数据。</p>
+                            <a href="{% url 'imageprocessor:admin_rag_upload' %}" class="btn btn-warning">
+                                <i class="fas fa-plus"></i> 录入RAG数据
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 图片模态框 -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">图片预览</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalImage" class="img-fluid" alt="图片预览">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showImageModal(imageUrl) {
+    const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+    document.getElementById('modalImage').src = imageUrl;
+    modal.show();
+}
+
+function toggleAllSelection() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('input[name="selected_features"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+    });
+}
+
+function confirmDeleteFeature(featureId) {
+    if (confirm('确定要删除这个RAG特征吗？此操作不可恢复。')) {
+        fetch(`/rag/delete/${featureId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const row = document.getElementById(`feature-${featureId}`);
+                row.remove();
+                alert('删除成功！');
+            } else {
+                alert('删除失败：' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('删除过程中出错');
+        });
+    }
+}
+
+function confirmBulkDelete() {
+    const selected = document.querySelectorAll('input[name="selected_features"]:checked');
+    if (selected.length === 0) {
+        alert('请先选择要删除的特征！');
+        return;
+    }
+    
+    if (confirm(`确定要删除选中的 ${selected.length} 个RAG特征吗？此操作不可恢复。`)) {
+        const featureIds = Array.from(selected).map(cb => cb.value);
+        
+        fetch('/rag/bulk-delete/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ feature_ids: featureIds }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                featureIds.forEach(id => {
+                    const row = document.getElementById(`feature-${id}`);
+                    if (row) row.remove();
+                });
+                document.getElementById('selectAll').checked = false;
+                alert(`成功删除 ${data.deleted_count} 个特征！`);
+            } else {
+                alert('批量删除失败：' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('批量删除过程中出错');
+        });
+    }
+}
+</script>
+{% endblock %}

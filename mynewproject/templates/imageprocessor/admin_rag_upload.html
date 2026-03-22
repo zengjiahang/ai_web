@@ -1,0 +1,349 @@
+{% extends 'imageprocessor/base.html' %}
+
+{% block title %}管理员RAG数据录入 - AI机械零件分析器{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="fas fa-user-shield text-warning"></i>
+                管理员RAG数据录入
+            </h2>
+            <p class="text-muted">手动录入高质量的机械零件特征数据，用于构建RAG特征库。</p>
+        </div>
+    </div>
+    
+    <!-- 统计信息 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center bg-info text-white">
+                <div class="card-body">
+                    <h4 class="mb-0">{{ rag_stats.total_features }}</h4>
+                    <small>总RAG特征</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-success text-white">
+                <div class="card-body">
+                    <h4 class="mb-0">{{ rag_stats.approved_features }}</h4>
+                    <small>已审核</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-warning text-white">
+                <div class="card-body">
+                    <h4 class="mb-0">{{ rag_stats.pending_features }}</h4>
+                    <small>待审核</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-primary text-white">
+                <div class="mb-0">{{ rag_stats.approval_rate|floatformat:1 }}%</div>
+                <small>审核率</small>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 快速导航 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="btn-group" role="group">
+                <a href="{% url 'imageprocessor:rag_review' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-check-circle"></i> 特征审核
+                </a>
+                <a href="{% url 'imageprocessor:user_upload' %}" class="btn btn-outline-info">
+                    <i class="fas fa-arrow-left"></i> 返回用户界面
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据录入表单 -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-database"></i> 手动录入RAG数据
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form method="post" enctype="multipart/form-data" id="ragUploadForm">
+                        {% csrf_token %}
+                        
+                        <!-- 图片上传 -->
+                        <div class="mb-3">
+                            <label for="{{ form.image.id_for_label }}" class="form-label">
+                                <strong>{{ form.image.label }}</strong>
+                            </label>
+                            {{ form.image }}
+                            <div class="form-text">{{ form.image.help_text }}</div>
+                            {% if form.image.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.image.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 特征数量 -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.slot_count.id_for_label }}" class="form-label">
+                                    <strong>{{ form.slot_count.label }}</strong>
+                                </label>
+                                {{ form.slot_count }}
+                                <div class="form-text">{{ form.slot_count.help_text }}</div>
+                                {% if form.slot_count.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.slot_count.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.hole_count.id_for_label }}" class="form-label">
+                                    <strong>{{ form.hole_count.label }}</strong>
+                                </label>
+                                {{ form.hole_count }}
+                                <div class="form-text">{{ form.hole_count.help_text }}</div>
+                                {% if form.hole_count.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.hole_count.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.chamfer_count.id_for_label }}" class="form-label">
+                                    <strong>{{ form.chamfer_count.label }}</strong>
+                                </label>
+                                {{ form.chamfer_count }}
+                                <div class="form-text">{{ form.chamfer_count.help_text }}</div>
+                                {% if form.chamfer_count.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.chamfer_count.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.shoulder_count.id_for_label }}" class="form-label">
+                                    <strong>{{ form.shoulder_count.label }}</strong>
+                                </label>
+                                {{ form.shoulder_count }}
+                                <div class="form-text">{{ form.shoulder_count.help_text }}</div>
+                                {% if form.shoulder_count.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.shoulder_count.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.step_count.id_for_label }}" class="form-label">
+                                    <strong>{{ form.step_count.label }}</strong>
+                                </label>
+                                {{ form.step_count }}
+                                <div class="form-text">{{ form.step_count.help_text }}</div>
+                                {% if form.step_count.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.step_count.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- 特征位置（可选） -->
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>特征位置标注（可选）</strong><br>
+                            如果需要记录特征在图片中的具体位置，请输入坐标数据。格式如：[[100, 150], [200, 250]]
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.slot_positions.id_for_label }}" class="form-label">
+                                    {{ form.slot_positions.label }}
+                                </label>
+                                {{ form.slot_positions }}
+                                <div class="form-text">{{ form.slot_positions.help_text }}</div>
+                                {% if form.slot_positions.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.slot_positions.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.hole_positions.id_for_label }}" class="form-label">
+                                    {{ form.hole_positions.label }}
+                                </label>
+                                {{ form.hole_positions }}
+                                <div class="form-text">{{ form.hole_positions.help_text }}</div>
+                                {% if form.hole_positions.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.hole_positions.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.chamfer_positions.id_for_label }}" class="form-label">
+                                    {{ form.chamfer_positions.label }}
+                                </label>
+                                {{ form.chamfer_positions }}
+                                <div class="form-text">{{ form.chamfer_positions.help_text }}</div>
+                                {% if form.chamfer_positions.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.chamfer_positions.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.shoulder_positions.id_for_label }}" class="form-label">
+                                    {{ form.shoulder_positions.label }}
+                                </label>
+                                {{ form.shoulder_positions }}
+                                <div class="form-text">{{ form.shoulder_positions.help_text }}</div>
+                                {% if form.shoulder_positions.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.shoulder_positions.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.step_positions.id_for_label }}" class="form-label">
+                                    {{ form.step_positions.label }}
+                                </label>
+                                {{ form.step_positions }}
+                                <div class="form-text">{{ form.step_positions.help_text }}</div>
+                                {% if form.step_positions.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.step_positions.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- 描述 -->
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">
+                                {{ form.description.label }}
+                            </label>
+                            {{ form.description }}
+                            <div class="form-text">{{ form.description.help_text }}</div>
+                            {% if form.description.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.description.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 提交按钮 -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-warning btn-lg">
+                                <i class="fas fa-save"></i> 录入RAG数据
+                            </button>
+                            <a href="{% url 'imageprocessor:rag_feature_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-list"></i> 查看RAG特征列表
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- 录入指南 -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-lightbulb"></i> 录入指南
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="small text-muted mb-0">
+                        <li>选择特征清晰、角度合适的图片</li>
+                        <li>准确统计每种特征的数量</li>
+                        <li>特征位置坐标可选填</li>
+                        <li>图片分辨率建议800x600以上</li>
+                        <li>录入的数据将直接加入RAG库</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- 坐标格式说明 -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-map-marker-alt"></i> 坐标格式说明
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-2">坐标格式：</p>
+                    <code class="small d-block bg-light p-2 rounded">
+                        [[x1, y1], [x2, y2], ...]
+                    </code>
+                    <p class="small text-muted mt-2 mb-0">例如：[[100, 150], [200, 250]]</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 表单验证
+    const form = document.getElementById('ragUploadForm');
+    form.addEventListener('submit', function(e) {
+        const slotCount = parseInt(document.querySelector('[name="slot_count"]').value) || 0;
+        const holeCount = parseInt(document.querySelector('[name="hole_count"]').value) || 0;
+        const chamferCount = parseInt(document.querySelector('[name="chamfer_count"]').value) || 0;
+        const shoulderCount = parseInt(document.querySelector('[name="shoulder_count"]').value) || 0;
+        const stepCount = parseInt(document.querySelector('[name="step_count"]').value) || 0;
+        
+        const totalCount = slotCount + holeCount + chamferCount + shoulderCount + stepCount;
+        
+        if (totalCount === 0) {
+            e.preventDefault();
+            alert('请至少录入一个特征数量！');
+            return false;
+        }
+        
+        // 验证坐标格式
+        const positionFields = ['slot_positions', 'hole_positions', 'chamfer_positions', 'shoulder_positions', 'step_positions'];
+        for (let field of positionFields) {
+            const input = document.querySelector(`[name="${field}"]`);
+            if (input.value.trim()) {
+                try {
+                    JSON.parse(input.value);
+                } catch (e) {
+                    e.preventDefault();
+                    alert(`${input.previousElementSibling.textContent} 的坐标格式不正确！`);
+                    return false;
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

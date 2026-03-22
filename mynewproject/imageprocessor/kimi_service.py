@@ -3,17 +3,20 @@ import base64
 import re
 from openai import OpenAI
 from django.conf import settings
+from .advanced_rag_service import AdvancedRAGService
 
 
 class KimiService:
     """Kimi API Service with Vision Capabilities"""
     
-    def __init__(self):
+    def __init__(self, enable_rag=True):
         # Initialize OpenAI client with Kimi API configuration
         self.client = OpenAI(
             api_key=settings.KIMI_API_KEY,
             base_url="https://api.moonshot.cn/v1"
         )
+        # Initialize Advanced RAG service
+        self.advanced_rag_service = AdvancedRAGService() if enable_rag else None
         
     def encode_image_to_base64(self, image_file):
         """Convert image file to base64 encoding"""
@@ -56,13 +59,14 @@ class KimiService:
             print(f"MIME type detection failed: {e}")
             return 'image/jpeg'  # Default fallback
     
-    def analyze_image(self, image_file, prompt="Please analyze this mechanical part image and identify manufacturing features"):
+    def analyze_image(self, image_file, prompt="Please analyze this mechanical part image and identify manufacturing features", use_rag=True):
         """
         Analyze mechanical part image to identify manufacturing features using Kimi Vision API
         
         Args:
             image_file: Image file object
             prompt: Analysis prompt for mechanical features
+            use_rag: Whether to use RAG enhancement
             
         Returns:
             dict: Dictionary containing analysis results with feature counts
@@ -70,6 +74,7 @@ class KimiService:
         try:
             print(f"Starting mechanical part analysis with Kimi Vision API...")
             print(f"Using model: kimi-k2.5")
+            print(f"Advanced RAG enhancement: {'Enabled' if use_rag and self.advanced_rag_service else 'Disabled'}")
             
             # Debug: Check what type of object we received
             print(f"Image file type: {type(image_file)}")
@@ -169,16 +174,45 @@ class KimiService:
             # 提取特征数量
             features = self.extract_feature_counts(result_content)
             
+            # 构建包含特征数量的完整结果
+            feature_counts = features
+            total_count = sum(features.values())
+            
+            full_result = f"{result_content}\n\n"
+            if feature_counts:
+                full_result += "📊 特征数量统计:\n"
+                full_result += "=" * 30 + "\n"
+                for feature, count in feature_counts.items():
+                    feature_names = {
+                        'slot': '槽特征',
+                        'hole': '孔特征', 
+                        'chamfer': '倒角特征',
+                        'shoulder': '肩特征',
+                        'step': '阶特征'
+                    }
+                    full_result += f"{feature_names.get(feature, feature)}: {count}个\n"
+                full_result += f"\n🔢 总特征数量: {total_count}\n"
+            
             return {
                 'success': True,
-                'result': result_content,
+                'result': full_result,
                 'features': features,
-                'total': sum(features.values())
+                'total': total_count
             }
                 
         except Exception as e:
             print(f"Kimi Vision API error: {e}")
             print(f"Error details: {str(e)}")
+            
+            # 如果启用了高级RAG，尝试使用RAG增强分析
+            if use_rag and self.advanced_rag_service:
+                try:
+                    # 注意：这里需要传入实际的processed_image对象，而不是文件
+                    # 这个方法将在views.py中调用
+                    return None  # 返回None表示需要外部处理RAG
+                except Exception as rag_e:
+                    print(f"Advanced RAG enhancement failed: {rag_e}")
+            
             # Fallback to basic analysis if vision API fails
             return self.create_basic_mechanical_analysis(actual_file, prompt)
     

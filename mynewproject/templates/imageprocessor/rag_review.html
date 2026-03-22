@@ -1,0 +1,310 @@
+{% extends 'imageprocessor/base.html' %}
+
+{% block title %}RAG特征审核 - AI图片分析器{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">🔍 RAG特征审核管理</h2>
+            <p class="text-muted">审核和管理RAG特征标注，确保数据质量。</p>
+            
+            <!-- 快速导航 -->
+            <div class="btn-group mb-3" role="group">
+                <a href="{% url 'imageprocessor:admin_rag_upload' %}" class="btn btn-outline-warning">
+                    <i class="fas fa-upload"></i> 上传RAG图片
+                </a>
+                <a href="{% url 'imageprocessor:rag_feature_list' %}" class="btn btn-outline-success">
+                    <i class="fas fa-list"></i> RAG库管理
+                </a>
+                <a href="{% url 'imageprocessor:user_upload' %}" class="btn btn-outline-info">
+                    <i class="fas fa-arrow-left"></i> 返回用户界面
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 统计信息 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center bg-warning text-white">
+                <div class="card-body">
+                    <h4 class="mb-0">{{ stats.pending_features }}</h4>
+                    <small>待审核</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-success text-white">
+                <div class="card-body">
+                    <h4 class="mb-0">{{ stats.approved_features }}</h4>
+                    <small>已审核</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-info text-white">
+                <div class="card-body">
+                    <h4 class="mb-0">{{ stats.total_features }}</h4>
+                    <small>总特征</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-primary text-white">
+                <div class="card-body">
+                    <h4 class="mb-0">{{ stats.approval_rate|floatformat:1 }}%</h4>
+                    <small>审核率</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 待审核特征 -->
+    {% if pending_features %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock"></i> 待审核特征 ({{ pending_features|length }})
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>图片</th>
+                                    <th>AI提取特征</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for feature in pending_features %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <img src="{{ feature.processed_image.image.url }}" 
+                                                 alt="图片" 
+                                                 class="img-thumbnail me-3"
+                                                 style="width: 80px; height: 60px; object-fit: cover;">
+                                            <div>
+                                                <div><strong>图片ID: #{{ feature.processed_image.id }}</strong></div>
+                                                <small class="text-muted">
+                                                    上传: {{ feature.processed_image.uploaded_at|date:"Y-m-d H:i" }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <small>
+                                            <span class="badge bg-primary">槽:{{ feature.slot_count }}</span>
+                                            <span class="badge bg-success">孔:{{ feature.hole_count }}</span>
+                                            <span class="badge bg-info">倒角:{{ feature.chamfer_count }}</span>
+                                            <span class="badge bg-warning">肩:{{ feature.shoulder_count }}</span>
+                                            <span class="badge bg-danger">阶:{{ feature.step_count }}</span>
+                                        </small>
+                                        <div class="mt-1">
+                                            <small class="text-muted">总计: {{ feature.get_total_features }}</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ feature.created_at|date:"Y-m-d" }}<br>
+                                            {{ feature.created_at|time:"H:i" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'imageprocessor:rag_feature_detail' feature.id %}" 
+                                               class="btn btn-outline-primary">
+                                                <i class="fas fa-eye"></i> 详情
+                                            </a>
+                                            <button type="button" 
+                                                    class="btn btn-outline-success"
+                                                    onclick="quickApprove({{ feature.id }})">
+                                                <i class="fas fa-check"></i> 快速通过
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- 已审核特征 -->
+    {% if reviewed_features %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-check-circle"></i> 最近审核的特征 ({{ reviewed_features|length }})
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>图片</th>
+                                    <th>审核特征</th>
+                                    <th>审核状态</th>
+                                    <th>审核时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for feature in reviewed_features %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <img src="{{ feature.processed_image.image.url }}" 
+                                                 alt="图片" 
+                                                 class="img-thumbnail me-3"
+                                                 style="width: 80px; height: 60px; object-fit: cover;">
+                                            <div>
+                                                <div><strong>图片ID: #{{ feature.processed_image.id }}</strong></div>
+                                                <small class="text-muted">
+                                                    审核者: {{ feature.reviewed_by|default:"系统" }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <small>
+                                            <span class="badge bg-primary">槽:{{ feature.slot_count }}</span>
+                                            <span class="badge bg-success">孔:{{ feature.hole_count }}</span>
+                                            <span class="badge bg-info">倒角:{{ feature.chamfer_count }}</span>
+                                            <span class="badge bg-warning">肩:{{ feature.shoulder_count }}</span>
+                                            <span class="badge bg-danger">阶:{{ feature.step_count }}</span>
+                                        </small>
+                                    </td>
+                                    <td>
+                                        {% if feature.approval_status == 'approved' %}
+                                            <span class="badge bg-success">✅ 已批准</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">❌ 已拒绝</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ feature.reviewed_at|date:"Y-m-d" }}<br>
+                                            {{ feature.reviewed_at|time:"H:i" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'imageprocessor:rag_feature_detail' feature.id %}" 
+                                           class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-eye"></i> 查看
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">暂无已审核特征</h5>
+                    <p class="text-muted">请先审核待审核的特征。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- 快速审核模态框 -->
+    <div class="modal fade" id="quickApproveModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post" id="quickApproveForm">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title">⚡ 快速审核</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="feature_id" id="quickFeatureId">
+                        <input type="hidden" name="action" value="approve">
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>警告：</strong> 快速审核将直接使用AI提取的特征数据，
+                            请确保AI分析结果准确无误。
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="reviewNotes" class="form-label">审核备注（可选）</label>
+                            <textarea class="form-control" name="review_notes" 
+                                      id="reviewNotes" rows="2"
+                                      placeholder="请输入审核备注..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            取消
+                        </button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-check"></i> 确认通过
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function quickApprove(featureId) {
+    document.getElementById('quickFeatureId').value = featureId;
+    const modal = new bootstrap.Modal(document.getElementById('quickApproveModal'));
+    modal.show();
+}
+
+// 表单提交处理
+document.getElementById('quickApproveForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const form = this;
+    const formData = new FormData(form);
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 刷新页面
+            location.reload();
+        } else {
+            alert('审核失败: ' + (data.error || '未知错误'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('提交时出错，请重试');
+    });
+});
+</script>
+{% endblock %}

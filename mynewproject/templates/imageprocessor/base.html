@@ -13,7 +13,7 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
-            <a class="navbar-brand" href="{% url 'imageprocessor:upload' %}">
+            <a class="navbar-brand" href="{% url 'imageprocessor:user_upload' %}">
                         <i class="fas fa-industry"></i> AI Mechanical Analyzer
                     </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -22,14 +22,30 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'imageprocessor:upload' %}">
-                            <i class="fas fa-upload"></i> Analyze Part
+                        <a class="nav-link" href="{% url 'imageprocessor:user_upload' %}">
+                            <i class="fas fa-upload"></i> 分析零件
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'imageprocessor:history' %}">
-                            <i class="fas fa-history"></i> Analysis History
+                            <i class="fas fa-history"></i> 分析历史
                         </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-shield"></i> 管理员
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'imageprocessor:admin_rag_upload' %}">
+                                <i class="fas fa-plus"></i> RAG数据录入
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'imageprocessor:rag_feature_list' %}">
+                                <i class="fas fa-list"></i> RAG特征管理
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'imageprocessor:rag_review' %}">
+                                <i class="fas fa-check-circle"></i> RAG审核
+                            </a></li>
+                        </ul>
                     </li>
                 </ul>
             </div>

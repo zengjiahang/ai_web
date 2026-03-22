@@ -351,3 +351,198 @@ For precise measurement of your specific part, consider using specialized metrol
                 features['肩特征'] = int(final_answer_match.group(5))
         
         return features
+    
+    def analyze_image_with_references(self, main_image, reference_images, prompt="Please analyze this mechanical part image"):
+        """
+        使用参考图片分析主图片
+        
+        Args:
+            main_image: 主图片文件对象
+            reference_images: 参考图片列表，每个元素包含 {'image': image_file, 'features': features_dict, 'positions': positions_dict}
+            prompt: 分析提示词
+            
+        Returns:
+            dict: 包含分析结果的字典
+        """
+        try:
+            print(f"Starting multi-image analysis with {len(reference_images)} reference images...")
+            print(f"Using model: kimi-k2.5")
+            
+            # 处理主图片
+            if hasattr(main_image, 'file'):
+                main_file = main_image.file
+            elif hasattr(main_image, 'read'):
+                main_file = main_image
+            else:
+                return {
+                    'success': False,
+                    'error': 'Invalid main image object type'
+                }
+            
+            # 转换主图片为base64
+            main_base64 = self.encode_image_to_base64(main_file)
+            main_mime_type = self.get_image_mime_type(main_file)
+            main_image_url = f"data:{main_mime_type};base64,{main_base64}"
+            
+            # 构建消息内容
+            content = [
+                {
+                    "type": "text",
+                    "text": f"""你是一个专业的机械工程检测员。请按照以下步骤分析图片：
+
+## 📋 分析步骤
+
+### 第一步：逐个分析参考图片
+请逐个分析以下{len(reference_images)}张参考图片，对每张图片详细描述：
+- 有几个槽特征？分别位于什么位置？
+- 有几个孔特征？分别位于什么位置？
+- 有几个倒角特征？分别位于什么位置？
+- 有几个肩特征？分别位于什么位置？
+- 有几个阶特征？分别位于什么位置？
+
+### 参考图片信息：
+
+"""
+                }
+            ]
+            
+            # 添加主图片
+            content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": main_image_url,
+                },
+            })
+            
+            # 添加参考图片
+            for i, ref in enumerate(reference_images, 1):
+                if hasattr(ref['image'], 'file'):
+                    ref_file = ref['image'].file
+                elif hasattr(ref['image'], 'read'):
+                    ref_file = ref['image']
+                else:
+                    continue
+                
+                ref_base64 = self.encode_image_to_base64(ref_file)
+                ref_mime_type = self.get_image_mime_type(ref_file)
+                ref_image_url = f"data:{ref_mime_type};base64,{ref_base64}"
+                
+                # 添加参考图片到消息
+                content.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": ref_image_url,
+                    },
+                })
+                
+                # 添加参考图片的描述
+                features = ref.get('features', {})
+                positions = ref.get('positions', {})
+                
+                ref_description = f"""
+### 参考图片 #{i} (图片ID: {ref.get('image_id', 'Unknown')})
+**已审核特征数量：**
+- 槽特征: {features.get('slot', 0)}个
+- 孔特征: {features.get('hole', 0)}个
+- 倒角特征: {features.get('chamfer', 0)}个
+- 肩特征: {features.get('shoulder', 0)}个
+- 阶特征: {features.get('step', 0)}个
+
+**位置描述：**
+- 槽特征: {positions.get('slot', '无')}
+- 孔特征: {positions.get('hole', '无')}
+- 倒角特征: {positions.get('chamfer', '无')}
+- 肩特征: {positions.get('shoulder', '无')}
+- 阶特征: {positions.get('step', '无')}
+
+请仔细观察这张参考图片，确认上述特征数量和位置描述是否准确。
+"""
+                
+                content.append({
+                    "type": "text",
+                    "text": ref_description
+                })
+            
+            # 添加最终分析要求
+            content.append({
+                "type": "text",
+                "text": f"""
+### 第二步：分析主图片
+现在请分析主图片（第一张图片），结合对参考图片的观察结果：
+1. 对比主图片与参考图片的特征分布
+2. 识别主图片的独特特征
+3. 提供准确的特征计数
+4. 描述特征的具体位置
+5. 解释与参考图片的异同点
+
+**重要**: 请以主图片为准进行最终判断，参考图片仅作为对比依据。
+
+📋 **输出格式要求：**
+请严格按照以下格式输出结果：
+槽特征: X个
+孔特征: Y个  
+倒角特征: Z个
+肩特征: A个
+阶特征: B个
+
+其中X、Y、Z、A、B必须是具体的整数。
+
+分析请求: {prompt}
+"""
+            })
+            
+            # 调用Kimi Vision API
+            completion = self.client.chat.completions.create(
+                model="kimi-k2.5",
+                messages=[
+                    {"role": "system", "content": "你是 Kimi。"},
+                    {
+                        "role": "user",
+                        "content": content
+                    },
+                ],
+            )
+            
+            result_content = completion.choices[0].message.content
+            print(f"✅ Multi-image analysis completed successfully")
+            print(f"Response preview: {result_content[:200]}...")
+            
+            # 提取特征数量
+            features = self.extract_feature_counts(result_content)
+            
+            # 构建包含特征数量的完整结果
+            feature_counts = features
+            total_count = sum(features.values())
+            
+            full_result = f"{result_content}\n\n"
+            if feature_counts:
+                full_result += "📊 特征数量统计:\n"
+                full_result += "=" * 30 + "\n"
+                for feature, count in feature_counts.items():
+                    feature_names = {
+                        'slot': '槽特征',
+                        'hole': '孔特征', 
+                        'chamfer': '倒角特征',
+                        'shoulder': '肩特征',
+                        'step': '阶特征'
+                    }
+                    full_result += f"{feature_names.get(feature, feature)}: {count}个\n"
+                full_result += f"\n🔢 总特征数量: {total_count}\n"
+                full_result += f"\n📚 参考了 {len(reference_images)} 张相似图片进行分析\n"
+            
+            return {
+                'success': True,
+                'result': full_result,
+                'features': features,
+                'total': total_count,
+                'reference_count': len(reference_images)
+            }
+                
+        except Exception as e:
+            print(f"❌ Multi-image analysis error: {e}")
+            print(f"Error details: {str(e)}")
+            
+            return {
+                'success': False,
+                'error': f'Multi-image analysis error: {str(e)}'
+            }

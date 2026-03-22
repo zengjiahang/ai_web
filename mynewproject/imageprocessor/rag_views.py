@@ -10,7 +10,6 @@ from .advanced_rag_service import AdvancedRAGService
 import json
 
 
-@method_decorator(login_required, name='dispatch')
 class RAGReviewView(View):
     """RAG特征审核管理视图"""
     

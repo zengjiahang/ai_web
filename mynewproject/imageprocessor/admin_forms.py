@@ -52,59 +52,59 @@ class AdminRAGUploadForm(forms.Form):
         widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '0'})
     )
     
-    # 特征位置标注（可选）
+    # 特征位置描述（可选）
     slot_positions = forms.CharField(
-        label='槽特征位置',
+        label='槽特征位置描述',
         required=False,
-        help_text='槽特征在图片中的位置坐标，格式如: [[x1,y1],[x2,y2]]',
+        help_text='描述槽特征在图片中的位置，如：左侧边缘有2个矩形槽，中间有1个T型槽',
         widget=forms.Textarea(attrs={
             'class': 'form-control', 
             'rows': 2,
-            'placeholder': '[[100, 150], [200, 250]]'
+            'placeholder': '例如：左侧边缘有2个矩形槽，中间有1个T型槽'
         })
     )
     
     hole_positions = forms.CharField(
-        label='孔特征位置',
+        label='孔特征位置描述',
         required=False,
-        help_text='孔特征在图片中的位置坐标，格式如: [[x1,y1],[x2,y2]]',
+        help_text='描述孔特征在图片中的位置，如：中心区域有3个圆孔，右下角有1个方孔',
         widget=forms.Textarea(attrs={
             'class': 'form-control', 
             'rows': 2,
-            'placeholder': '[[150, 200], [300, 400]]'
+            'placeholder': '例如：中心区域有3个圆孔，右下角有1个方孔'
         })
     )
     
     chamfer_positions = forms.CharField(
-        label='倒角特征位置',
+        label='倒角特征位置描述',
         required=False,
-        help_text='倒角特征在图片中的位置坐标，格式如: [[x1,y1],[x2,y2]]',
+        help_text='描述倒角特征在图片中的位置，如：所有外边缘都有倒角，内孔边缘也有倒角',
         widget=forms.Textarea(attrs={
             'class': 'form-control', 
             'rows': 2,
-            'placeholder': '[[50, 100], [400, 450]]'
+            'placeholder': '例如：所有外边缘都有倒角，内孔边缘也有倒角'
         })
     )
     
     shoulder_positions = forms.CharField(
-        label='肩特征位置',
+        label='肩特征位置描述',
         required=False,
-        help_text='肩特征在图片中的位置坐标，格式如: [[x1,y1],[x2,y2]]',
+        help_text='描述肩特征在图片中的位置，如：轴左侧有1个轴肩，右侧有2个台阶肩',
         widget=forms.Textarea(attrs={
             'class': 'form-control', 
             'rows': 2,
-            'placeholder': '[[200, 300], [500, 600]]'
+            'placeholder': '例如：轴左侧有1个轴肩，右侧有2个台阶肩'
         })
     )
     
     step_positions = forms.CharField(
-        label='阶特征位置',
+        label='阶特征位置描述',
         required=False,
-        help_text='阶特征在图片中的位置坐标，格式如: [[x1,y1],[x2,y2]]',
+        help_text='描述阶特征在图片中的位置，如：左侧有2个高度台阶，右侧有1个平台台阶',
         widget=forms.Textarea(attrs={
             'class': 'form-control', 
             'rows': 2,
-            'placeholder': '[[250, 350], [600, 700]]'
+            'placeholder': '例如：左侧有2个高度台阶，右侧有1个平台台阶'
         })
     )
     
@@ -119,98 +119,3 @@ class AdminRAGUploadForm(forms.Form):
             'placeholder': '例如：这是一个包含多个槽和孔的机械零件'
         })
     )
-    
-    def clean_slot_positions(self):
-        """验证槽特征位置格式"""
-        data = self.cleaned_data.get('slot_positions', '')
-        if data:
-            try:
-                import json
-                positions = json.loads(data)
-                if not isinstance(positions, list):
-                    raise forms.ValidationError('位置数据必须是列表格式')
-                for pos in positions:
-                    if not isinstance(pos, list) or len(pos) != 2:
-                        raise forms.ValidationError('每个位置必须是包含2个数字的列表')
-                    if not all(isinstance(x, (int, float)) for x in pos):
-                        raise forms.ValidationError('位置坐标必须是数字')
-                return positions
-            except json.JSONDecodeError:
-                raise forms.ValidationError('位置数据必须是有效的JSON格式')
-        return []
-    
-    def clean_hole_positions(self):
-        """验证孔特征位置格式"""
-        data = self.cleaned_data.get('hole_positions', '')
-        if data:
-            try:
-                import json
-                positions = json.loads(data)
-                if not isinstance(positions, list):
-                    raise forms.ValidationError('位置数据必须是列表格式')
-                for pos in positions:
-                    if not isinstance(pos, list) or len(pos) != 2:
-                        raise forms.ValidationError('每个位置必须是包含2个数字的列表')
-                    if not all(isinstance(x, (int, float)) for x in pos):
-                        raise forms.ValidationError('位置坐标必须是数字')
-                return positions
-            except json.JSONDecodeError:
-                raise forms.ValidationError('位置数据必须是有效的JSON格式')
-        return []
-    
-    def clean_chamfer_positions(self):
-        """验证倒角特征位置格式"""
-        data = self.cleaned_data.get('chamfer_positions', '')
-        if data:
-            try:
-                import json
-                positions = json.loads(data)
-                if not isinstance(positions, list):
-                    raise forms.ValidationError('位置数据必须是列表格式')
-                for pos in positions:
-                    if not isinstance(pos, list) or len(pos) != 2:
-                        raise forms.ValidationError('每个位置必须是包含2个数字的列表')
-                    if not all(isinstance(x, (int, float)) for x in pos):
-                        raise forms.ValidationError('位置坐标必须是数字')
-                return positions
-            except json.JSONDecodeError:
-                raise forms.ValidationError('位置数据必须是有效的JSON格式')
-        return []
-    
-    def clean_shoulder_positions(self):
-        """验证肩特征位置格式"""
-        data = self.cleaned_data.get('shoulder_positions', '')
-        if data:
-            try:
-                import json
-                positions = json.loads(data)
-                if not isinstance(positions, list):
-                    raise forms.ValidationError('位置数据必须是列表格式')
-                for pos in positions:
-                    if not isinstance(pos, list) or len(pos) != 2:
-                        raise forms.ValidationError('每个位置必须是包含2个数字的列表')
-                    if not all(isinstance(x, (int, float)) for x in pos):
-                        raise forms.ValidationError('位置坐标必须是数字')
-                return positions
-            except json.JSONDecodeError:
-                raise forms.ValidationError('位置数据必须是有效的JSON格式')
-        return []
-    
-    def clean_step_positions(self):
-        """验证阶特征位置格式"""
-        data = self.cleaned_data.get('step_positions', '')
-        if data:
-            try:
-                import json
-                positions = json.loads(data)
-                if not isinstance(positions, list):
-                    raise forms.ValidationError('位置数据必须是列表格式')
-                for pos in positions:
-                    if not isinstance(pos, list) or len(pos) != 2:
-                        raise forms.ValidationError('每个位置必须是包含2个数字的列表')
-                    if not all(isinstance(x, (int, float)) for x in pos):
-                        raise forms.ValidationError('位置坐标必须是数字')
-                return positions
-            except json.JSONDecodeError:
-                raise forms.ValidationError('位置数据必须是有效的JSON格式')
-        return []

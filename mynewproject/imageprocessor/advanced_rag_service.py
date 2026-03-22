@@ -200,10 +200,10 @@ class AdvancedRAGService:
 - **已审核特征数量**: 槽{similar['features']['slot']}个, 孔{similar['features']['hole']}个, 倒角{similar['features']['chamfer']}个, 肩{similar['features']['shoulder']}个, 阶{similar['features']['step']}个
 """
             
-            # 添加位置信息（如果有已审核的位置标注）
+            # 添加位置描述信息（如果有已审核的位置标注）
             positions = similar['positions']
             if any(positions.values()):
-                rag_prompt += "- **已审核位置信息**:\n"
+                rag_prompt += "- **已审核位置描述**:\n"
                 if positions['slot']:
                     rag_prompt += f"  - 槽特征: {positions['slot']}\n"
                 if positions['hole']:

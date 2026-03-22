@@ -10,7 +10,7 @@ from .models import RAGImageFeature
 import json
 
 
-@login_required
+@csrf_exempt
 def delete_rag_feature(request, feature_id):
     """删除RAG特征"""
     if request.method != 'POST':
@@ -33,7 +33,7 @@ def delete_rag_feature(request, feature_id):
         return JsonResponse({'success': False, 'error': str(e)})
 
 
-@login_required
+@csrf_exempt
 def bulk_delete_rag_features(request):
     """批量删除RAG特征"""
     if request.method != 'POST':
@@ -73,7 +73,7 @@ def bulk_delete_rag_features(request):
         return JsonResponse({'success': False, 'error': str(e)})
 
 
-@login_required
+@csrf_exempt
 def edit_rag_feature(request, feature_id):
     """编辑RAG特征"""
     feature = get_object_or_404(RAGImageFeature, id=feature_id)

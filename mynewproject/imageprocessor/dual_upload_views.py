@@ -43,49 +43,71 @@ class UserImageUploadView(View):
                 # 第一步：基础AI分析（不使用RAG）
                 kimi_service = KimiService(enable_rag=True)
                 
-                result = kimi_service.analyze_image(
-                    processed_image.image.file,
-                    prompt="Please analyze this mechanical workpiece and identify all manufacturing features including slots, holes, chamfers, and steps. Provide exact counts for each feature type.",
-                    use_rag=False
-                )
-                
-                # 第二步：如果基础分析成功，进行RAG增强分析
-                if result and result['success'] and kimi_service.advanced_rag_service:
-                    # 从基础分析结果创建临时RAG特征（待审核状态）
+                # 第二步：进行RAG增强分析（使用多图片分析方法）
+                if kimi_service.advanced_rag_service:
+                    # 查找相似图片（基于已审核的特征）
                     rag_service = AdvancedRAGService()
-                    rag_feature = rag_service.create_rag_feature_from_ai_result(processed_image)
                     
-                    if rag_feature:
-                        # 查找相似图片（基于已审核的特征）
-                        similar_images = rag_service.find_similar_images_for_new_upload(
-                            result.get('features', {})
-                        )
+                    # 先进行基础分析获取初步特征
+                    basic_result = kimi_service.analyze_image(
+                        processed_image.image.file,
+                        prompt="Please analyze this mechanical workpiece and identify all manufacturing features including slots, holes, chamfers, and steps. Provide exact counts for each feature type.",
+                        use_rag=False
+                    )
+                    
+                    if basic_result and basic_result['success']:
+                        # 从基础分析结果创建临时RAG特征（待审核状态）
+                        rag_feature = rag_service.create_rag_feature_from_ai_result(processed_image)
                         
-                        if similar_images:
-                            # 生成RAG增强提示词
-                            rag_prompt = rag_service.generate_rag_prompt_with_references(
-                                similar_images,
-                                "Please analyze this mechanical workpiece and identify all manufacturing features including slots, holes, chamfers, and steps. Provide exact counts for each feature type."
+                        if rag_feature:
+                            # 查找相似图片（基于已审核的特征）
+                            similar_images = rag_service.find_similar_images_for_new_upload(
+                                basic_result.get('features', {})
                             )
                             
-                            # 使用RAG增强提示词重新分析
-                            enhanced_result = kimi_service.analyze_image(
-                                processed_image.image.file,
-                                prompt=rag_prompt,
-                                use_rag=False
-                            )
-                            
-                            if enhanced_result and enhanced_result['success']:
-                                # 使用增强结果
-                                result = enhanced_result
-                                result['rag_similar_images'] = similar_images
-                                print(f"✅ 用户上传RAG增强分析完成，参考了 {len(similar_images)} 张相似图片")
+                            if similar_images:
+                                # 准备参考图片数据
+                                reference_images = []
+                                for similar in similar_images:
+                                    ref_data = {
+                                        'image': similar['processed_image'].image,
+                                        'image_id': similar['processed_image'].id,
+                                        'features': similar['features'],
+                                        'positions': similar['positions']
+                                    }
+                                    reference_images.append(ref_data)
+                                
+                                # 使用多图片分析方法
+                                enhanced_result = kimi_service.analyze_image_with_references(
+                                    processed_image.image.file,
+                                    reference_images,
+                                    "Please analyze this mechanical workpiece and identify all manufacturing features including slots, holes, chamfers, and steps. Provide exact counts for each feature type."
+                                )
+                                
+                                if enhanced_result and enhanced_result['success']:
+                                    # 使用增强结果
+                                    result = enhanced_result
+                                    result['rag_similar_images'] = similar_images
+                                    print(f"✅ 用户上传多图片RAG增强分析完成，发送了 {len(reference_images)} 张相似图片给AI")
+                                else:
+                                    print("⚠️  多图片RAG增强分析失败，使用基础分析结果")
+                                    result = basic_result
                             else:
-                                print("⚠️  RAG增强分析失败，使用基础分析结果")
+                                print("ℹ️  没有找到相似图片，使用基础分析结果")
+                                result = basic_result
                         else:
-                            print("ℹ️  没有找到相似图片，使用基础分析结果")
+                            print("⚠️  创建RAG特征失败，使用基础分析结果")
+                            result = basic_result
                     else:
-                        print("⚠️  创建RAG特征失败，使用基础分析结果")
+                        print("⚠️  基础分析失败，无法进行RAG增强")
+                        result = basic_result
+                else:
+                    # 如果没有RAG服务，只进行基础分析
+                    result = kimi_service.analyze_image(
+                        processed_image.image.file,
+                        prompt="Please analyze this mechanical workpiece and identify all manufacturing features including slots, holes, chamfers, and steps. Provide exact counts for each feature type.",
+                        use_rag=False
+                    )
                 
                 if result and result['success']:
                     # 构建包含特征数量的完整结果
@@ -178,7 +200,6 @@ class UserImageUploadView(View):
                 })
 
 
-@method_decorator(login_required, name='dispatch')
 class AdminRAGUploadView(View):
     """管理员RAG上传视图 - 管理员专用上传路径"""
     

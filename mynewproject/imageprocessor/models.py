@@ -142,7 +142,7 @@ class RAGImageFeature(models.Model):
         self.update_feature_vector()
     
     def has_positions(self):
-        """检查是否有位置标注"""
+        """检查是否有位置描述"""
         return bool(
             self.slot_positions or 
             self.hole_positions or 

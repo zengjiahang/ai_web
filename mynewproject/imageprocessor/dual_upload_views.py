@@ -13,6 +13,63 @@ from .advanced_rag_service import AdvancedRAGService
 import json
 
 
+def format_features_to_table(features):
+    """
+    将特征数量格式化为表格形式
+    
+    Args:
+        features: 特征数量字典 {'slot': 2, 'hole': 4, 'chamfer': 1, 'shoulder': 0, 'step': 1}
+    
+    Returns:
+        list: 表格行数据，每行包含 [Feature, Operation, Prior operations]
+    """
+    table_rows = []
+    feature_counter = 1
+    
+    # 槽特征 - milling，需要两行
+    slot_count = features.get('slot', 0)
+    for i in range(slot_count):
+        feature_name = f'F{feature_counter}'
+        table_rows.append([feature_name, 'milling', 'none'])
+        table_rows.append([feature_name, 'milling', 'none'])
+        feature_counter += 1
+    
+    # 孔特征 - 分为三行：milling, drilling, centre drilling
+    hole_count = features.get('hole', 0)
+    for i in range(hole_count):
+        feature_name = f'F{feature_counter}'
+        table_rows.append([feature_name, 'milling', 'none'])
+        table_rows.append([feature_name, 'drilling', 'centre drilling, milling'])
+        table_rows.append([feature_name, 'centre drilling', 'centre drilling, drilling, milling'])
+        feature_counter += 1
+    
+    # 倒角特征 - 两行milling
+    chamfer_count = features.get('chamfer', 0)
+    for i in range(chamfer_count):
+        feature_name = f'F{feature_counter}'
+        table_rows.append([feature_name, 'milling', 'none'])
+        table_rows.append([feature_name, 'milling', 'none'])
+        feature_counter += 1
+    
+    # 肩特征 - 两行milling
+    shoulder_count = features.get('shoulder', 0)
+    for i in range(shoulder_count):
+        feature_name = f'F{feature_counter}'
+        table_rows.append([feature_name, 'milling', 'none'])
+        table_rows.append([feature_name, 'milling', 'none'])
+        feature_counter += 1
+    
+    # 阶特征 - 两行milling
+    step_count = features.get('step', 0)
+    for i in range(step_count):
+        feature_name = f'F{feature_counter}'
+        table_rows.append([feature_name, 'milling', 'none'])
+        table_rows.append([feature_name, 'milling', 'none'])
+        feature_counter += 1
+    
+    return table_rows
+
+
 class UserImageUploadView(View):
     """用户图片上传视图 - 标准用户上传路径"""
     
@@ -114,6 +171,9 @@ class UserImageUploadView(View):
                     feature_counts = result.get('features', {})
                     total_count = result.get('total', 0)
                     
+                    # 格式化特征为表格
+                    table_data = format_features_to_table(feature_counts)
+                    
                     full_result = f"{result['result']}\n\n"
                     
                     # 添加RAG信息（如果有）
@@ -166,7 +226,8 @@ class UserImageUploadView(View):
                     })
                 else:
                     return render(request, 'imageprocessor/result.html', {
-                        'processed_image': processed_image
+                        'processed_image': processed_image,
+                        'table_data': table_data
                     })
                     
             except Exception as e:

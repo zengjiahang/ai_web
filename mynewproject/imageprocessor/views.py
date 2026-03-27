@@ -3,6 +3,7 @@ from django.http import JsonResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.views import View
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .forms import ImageUploadForm
 from .models import ProcessedImage, RAGImageFeature
 from .kimi_service import KimiService
@@ -224,17 +225,138 @@ class ImageUploadAPIView(View):
             })
 
 
+def format_features_to_table(features):
+    """
+    将特征数量格式化为表格形式
+    
+    Args:
+        features: 特征数量字典 {'slot': 2, 'hole': 4, 'chamfer': 1, 'shoulder': 0, 'step': 1}
+    
+    Returns:
+        list: 表格行数据，每行包含 [Feature, Operation, Prior operations]
+    """
+    table_rows = []
+    feature_counter = 1
+    
+    slot_count = features.get('slot', 0)
+    for i in range(slot_count):
+        feature_name = f'F{feature_counter}'
+        table_rows.append([feature_name, 'milling', 'none'])
+        table_rows.append([feature_name, 'milling', 'none'])
+        feature_counter += 1
+    
+    hole_count = features.get('hole', 0)
+    for i in range(hole_count):
+        feature_name = f'F{feature_counter}'
+        PRIOR_ALL = 'centre drilling, drilling, milling'
+        PRIOR_TWO = 'centre drilling, milling'
+        table_rows.append([feature_name, 'milling', PRIOR_ALL])
+        table_rows.append([feature_name, 'drilling', PRIOR_TWO])
+        table_rows.append([feature_name, 'centre drilling', 'milling'])
+        feature_counter += 1
+    
+    chamfer_count = features.get('chamfer', 0)
+    for i in range(chamfer_count):
+        feature_name = f'F{feature_counter}'
+        table_rows.append([feature_name, 'milling', 'none'])
+        table_rows.append([feature_name, 'milling', 'none'])
+        feature_counter += 1
+    
+    shoulder_count = features.get('shoulder', 0)
+    for i in range(shoulder_count):
+        feature_name = f'F{feature_counter}'
+        table_rows.append([feature_name, 'milling', 'none'])
+        table_rows.append([feature_name, 'milling', 'none'])
+        feature_counter += 1
+    
+    step_count = features.get('step', 0)
+    for i in range(step_count):
+        feature_name = f'F{feature_counter}'
+        table_rows.append([feature_name, 'milling', 'none'])
+        table_rows.append([feature_name, 'milling', 'none'])
+        feature_counter += 1
+    
+    return table_rows
+
+
 def result_view(request, image_id):
     """Display processing result"""
     processed_image = get_object_or_404(ProcessedImage, id=image_id)
+    
+    # 从结果中提取特征数量并格式化为表格
+    table_data = []
+    if processed_image.status == 'completed' and processed_image.result:
+        try:
+            # 尝试从结果中提取特征数量 - 使用更灵活的正则表达式
+            import re
+            
+            print(f"========== AI返回的原始内容 ==========")
+            print(processed_image.result)
+            print(f"======================================")
+            
+            # 尝试多种可能的格式
+            slot_match = re.search(r'槽特征[：:]\s*(\d+)', processed_image.result) or \
+                        re.search(r'Slot[：:]\s*(\d+)', processed_image.result) or \
+                        re.search(r'槽[：:]\s*(\d+)', processed_image.result)
+            
+            hole_match = re.search(r'孔特征[：:]\s*(\d+)', processed_image.result) or \
+                        re.search(r'Hole[：:]\s*(\d+)', processed_image.result) or \
+                        re.search(r'孔[：:]\s*(\d+)', processed_image.result)
+            
+            chamfer_match = re.search(r'倒角特征[：:]\s*(\d+)', processed_image.result) or \
+                            re.search(r'Chamfer[：:]\s*(\d+)', processed_image.result) or \
+                            re.search(r'倒角[：:]\s*(\d+)', processed_image.result)
+            
+            shoulder_match = re.search(r'肩特征[：:]\s*(\d+)', processed_image.result) or \
+                         re.search(r'Shoulder[：:]\s*(\d+)', processed_image.result) or \
+                         re.search(r'肩[：:]\s*(\d+)', processed_image.result)
+            
+            step_match = re.search(r'阶特征[：:]\s*(\d+)', processed_image.result) or \
+                       re.search(r'Step[：:]\s*(\d+)', processed_image.result) or \
+                       re.search(r'阶[：:]\s*(\d+)', processed_image.result)
+            
+            print(f"Slot match: {slot_match}, Hole match: {hole_match}, Chamfer match: {chamfer_match}")
+            print(f"Shoulder match: {shoulder_match}, Step match: {step_match}")
+            
+            features = {
+                'slot': int(slot_match.group(1)) if slot_match else 0,
+                'hole': int(hole_match.group(1)) if hole_match else 0,
+                'chamfer': int(chamfer_match.group(1)) if chamfer_match else 0,
+                'shoulder': int(shoulder_match.group(1)) if shoulder_match else 0,
+                'step': int(step_match.group(1)) if step_match else 0
+            }
+            
+            print(f"Extracted features: {features}")
+            
+            # 格式化为表格
+            table_data = format_features_to_table(features)
+            print(f"Generated table data with {len(table_data)} rows")
+        except Exception as e:
+            print(f"Error extracting features for table: {e}")
+            print(f"Result text: {processed_image.result[:200] if processed_image.result else 'None'}")
+    
+    print(f"Final table_data: {table_data}")
+    
     return render(request, 'imageprocessor/result.html', {
-        'processed_image': processed_image
+        'processed_image': processed_image,
+        'table_data': table_data
     })
 
 
 def history_view(request):
     """Display processing history"""
     images = ProcessedImage.objects.all().order_by('-uploaded_at')
+    
+    paginator = Paginator(images, 10)  # 每页10条
+    page = request.GET.get('page', 1)
+    
+    try:
+        images_page = paginator.page(page)
+    except PageNotAnInteger:
+        images_page = paginator.page(1)
+    except EmptyPage:
+        images_page = paginator.page(paginator.num_pages)
+    
     return render(request, 'imageprocessor/history.html', {
-        'images': images
+        'images': images_page
     })

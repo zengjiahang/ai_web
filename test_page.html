@@ -1,0 +1,493 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mechanical Part Analysis - AI Analyzer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                        <i class="fas fa-industry"></i> AI Mechanical Analyzer
+                    </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">
+                            <i class="fas fa-upload"></i> 分析零件
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/history/">
+                            <i class="fas fa-history"></i> 分析历史
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-shield"></i> 管理员
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/rag-admin/upload/">
+                                <i class="fas fa-plus"></i> RAG数据录入
+                            </a></li>
+                            <li><a class="dropdown-item" href="/rag/features/">
+                                <i class="fas fa-list"></i> RAG特征管理
+                            </a></li>
+                            <li><a class="dropdown-item" href="/rag/review/">
+                                <i class="fas fa-check-circle"></i> RAG审核
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container my-5">
+        
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="mb-4">
+            <a href="/" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left"></i> Back to Upload
+            </a>
+        </div>
+
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-industry"></i> Mechanical Part Feature Analysis
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="mb-3">
+                            <i class="fas fa-image"></i> Original Image
+                        </h5>
+                        <div class="text-center">
+                            <img src="/media/uploads/2026/03/26/test_image.jpg" 
+                                 class="img-fluid rounded shadow-sm" 
+                                 alt="Processed Image"
+                                 style="max-height: 400px;">
+                        </div>
+                        <div class="mt-3">
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Filename:</strong></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Upload Time:</strong></td>
+                                    <td>2026-03-26 09:48</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Processing Time:</strong></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Status:</strong></td>
+                                    <td>
+                                        
+                                            <span class="badge bg-success">Completed</span>
+                                        
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5 class="mb-3">
+                            <i class="fas fa-cogs"></i> Manufacturing Feature Analysis
+                        </h5>
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-tools"></i>
+                            <strong>Feature Detection Results:</strong> Slot count, hole count, chamfer count, and step count
+                        </div>
+                        
+                        <!-- 格式化特征表格 -->
+                        
+                        <div class="card mb-3">
+                            <div class="card-header bg-success text-white">
+                                <h6 class="mb-0"><i class="fas fa-table"></i> Feature Operations Table</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Feature</th>
+                                                <th>Operation</th>
+                                                <th>Prior operations</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            
+                                            <tr>
+                                                <td><strong>F1</strong></td>
+                                                <td>milling</td>
+                                                <td>none</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F1</strong></td>
+                                                <td>milling</td>
+                                                <td>none</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F2</strong></td>
+                                                <td>milling</td>
+                                                <td>none</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F2</strong></td>
+                                                <td>milling</td>
+                                                <td>none</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F3</strong></td>
+                                                <td>milling</td>
+                                                <td>centre drilling, drilling, milling</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F3</strong></td>
+                                                <td>drilling</td>
+                                                <td>centre drilling, milling</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F3</strong></td>
+                                                <td>centre drilling</td>
+                                                <td>milling</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F4</strong></td>
+                                                <td>milling</td>
+                                                <td>centre drilling, drilling, milling</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F4</strong></td>
+                                                <td>drilling</td>
+                                                <td>centre drilling, milling</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F4</strong></td>
+                                                <td>centre drilling</td>
+                                                <td>milling</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F5</strong></td>
+                                                <td>milling</td>
+                                                <td>none</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F5</strong></td>
+                                                <td>milling</td>
+                                                <td>none</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F6</strong></td>
+                                                <td>milling</td>
+                                                <td>none</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F6</strong></td>
+                                                <td>milling</td>
+                                                <td>none</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F7</strong></td>
+                                                <td>milling</td>
+                                                <td>none</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F7</strong></td>
+                                                <td>milling</td>
+                                                <td>none</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F8</strong></td>
+                                                <td>milling</td>
+                                                <td>none</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <td><strong>F8</strong></td>
+                                                <td>milling</td>
+                                                <td>none</td>
+                                            </tr>
+                                            
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        
+                        <!-- 调试信息 -->
+                        <div class="alert alert-info">
+                            <strong>调试信息：</strong><br>
+                            processed_image.status: completed<br>
+                            table_data存在: 是<br>
+                            table_data长度: 18<br>
+                            table_data内容: [[&#x27;F1&#x27;, &#x27;milling&#x27;, &#x27;none&#x27;], [&#x27;F1&#x27;, &#x27;milling&#x27;, &#x27;none&#x27;], [&#x27;F2&#x27;, &#x27;milling&#x27;, &#x27;none&#x27;], [&#x27;F2&#x27;, &#x27;milling&#x27;, &#x27;none&#x27;], [&#x27;F3&#x27;, &#x27;milling&#x27;, &#x27;centre drilling, drilling, milling&#x27;], [&#x27;F3&#x27;, &#x27;drilling&#x27;, &#x27;centre drilling, milling&#x27;], [&#x27;F3&#x27;, &#x27;centre drilling&#x27;, &#x27;milling&#x27;], [&#x27;F4&#x27;, &#x27;milling&#x27;, &#x27;centre drilling, drilling, milling&#x27;], [&#x27;F4&#x27;, &#x27;drilling&#x27;, &#x27;centre drilling, milling&#x27;], [&#x27;F4&#x27;, &#x27;centre drilling&#x27;, &#x27;milling&#x27;], [&#x27;F5&#x27;, &#x27;milling&#x27;, &#x27;none&#x27;], [&#x27;F5&#x27;, &#x27;milling&#x27;, &#x27;none&#x27;], [&#x27;F6&#x27;, &#x27;milling&#x27;, &#x27;none&#x27;], [&#x27;F6&#x27;, &#x27;milling&#x27;, &#x27;none&#x27;], [&#x27;F7&#x27;, &#x27;milling&#x27;, &#x27;none&#x27;], [&#x27;F7&#x27;, &#x27;milling&#x27;, &#x27;none&#x27;], [&#x27;F8&#x27;, &#x27;milling&#x27;, &#x27;none&#x27;], [&#x27;F8&#x27;, &#x27;milling&#x27;, &#x27;none&#x27;]]
+                        </div>
+                        
+                        
+                            <!-- 格式化特征表格 -->
+                            
+                            <div class="card mb-3">
+                                <div class="card-header bg-success text-white">
+                                    <h6 class="mb-0"><i class="fas fa-table"></i> Feature Operations Table</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered table-striped">
+                                            <thead>
+                                                <tr>
+                                                        <th>Feature</th>
+                                                        <th>Operation</th>
+                                                        <th>Prior operations</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F1</strong></td>
+                                                        <td>milling</td>
+                                                        <td>none</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F1</strong></td>
+                                                        <td>milling</td>
+                                                        <td>none</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F2</strong></td>
+                                                        <td>milling</td>
+                                                        <td>none</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F2</strong></td>
+                                                        <td>milling</td>
+                                                        <td>none</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F3</strong></td>
+                                                        <td>milling</td>
+                                                        <td>centre drilling, drilling, milling</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F3</strong></td>
+                                                        <td>drilling</td>
+                                                        <td>centre drilling, milling</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F3</strong></td>
+                                                        <td>centre drilling</td>
+                                                        <td>milling</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F4</strong></td>
+                                                        <td>milling</td>
+                                                        <td>centre drilling, drilling, milling</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F4</strong></td>
+                                                        <td>drilling</td>
+                                                        <td>centre drilling, milling</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F4</strong></td>
+                                                        <td>centre drilling</td>
+                                                        <td>milling</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F5</strong></td>
+                                                        <td>milling</td>
+                                                        <td>none</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F5</strong></td>
+                                                        <td>milling</td>
+                                                        <td>none</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F6</strong></td>
+                                                        <td>milling</td>
+                                                        <td>none</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F6</strong></td>
+                                                        <td>milling</td>
+                                                        <td>none</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F7</strong></td>
+                                                        <td>milling</td>
+                                                        <td>none</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F7</strong></td>
+                                                        <td>milling</td>
+                                                        <td>none</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F8</strong></td>
+                                                        <td>milling</td>
+                                                        <td>none</td>
+                                                    </tr>
+                                                    
+                                                    <tr>
+                                                        <td><strong>F8</strong></td>
+                                                        <td>milling</td>
+                                                        <td>none</td>
+                                                    </tr>
+                                                    
+                                                </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            
+                            <div class="mt-4">
+                                <h6 class="mb-3">Quick Actions:</h6>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="copyTable()">
+                                        <i class="fas fa-copy"></i> 复制表格数据
+                                    </button>
+                                    <a href="/" class="btn btn-outline-success btn-sm">
+                                        <i class="fas fa-plus"></i> 分析新图片
+                                    </a>
+                                    <a href="/history/" class="btn btn-outline-info btn-sm">
+                                        <i class="fas fa-history"></i> 查看历史
+                                    </a>
+                                    <a href="/rag/annotate/36/" class="btn btn-outline-warning btn-sm">
+                                        <i class="fas fa-edit"></i> RAG标注
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <!-- RAG增强信息 -->
+                            
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyTable() {
+    const table = document.querySelector('.table-bordered');
+    if (!table) {
+        alert('Table not found');
+        return;
+    }
+    
+    let tableText = 'Feature\tOperation\tPrior operations\n';
+    const rows = table.querySelectorAll('tbody tr');
+    
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 3) {
+            tableText += `${cells[0].innerText.trim()}\t${cells[1].innerText.trim()}\t${cells[2].innerText.trim()}\n`;
+        }
+    });
+    
+    navigator.clipboard.writeText(tableText).then(function() {
+        const btn = event.target.closest('button');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-success');
+        
+        setTimeout(function() {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-primary');
+        }, 2000);
+    }).catch(function(err) {
+        console.error('Failed to copy: ', err);
+        alert('Copy failed, please copy manually');
+    });
+}
+
+function copyResult() {
+    const resultText = `根据这张机械零件的等轴测视图，我对各特征分析如下：\u000A\u000A## 特征数量统计\u000A\u000A| 特征类型 | 数量 | 位置说明 |\u000A|\u002D\u002D\u002D\u002D\u002D\u002D\u002D\u002D\u002D|\u002D\u002D\u002D\u002D\u002D\u002D|\u002D\u002D\u002D\u002D\u002D\u002D\u002D\u002D\u002D|\u000A| **槽特征** | **2个** | 位于零件底部，呈前后方向的矩形开口（虚线所示） |\u000A| **倒角特征** | **1个** | 位于零件左上角顶部边缘的斜切面 |\u000A| **孔特征** | **2个** | 分别位于左上部和右下部的垂直通孔 |\u000A| **阶特征** | **2个** | 零件从左到右形成两级高度差（两个台阶） |\u000A| **肩特征** | **1个** | 右下部孔周围的凸起圆柱形凸台（凸肩） |\u000A\u000A## 详细特征解析\u000A\u000A**1. 孔特征（2个）**\u000A\u002D **左上孔**：位于左侧高台的垂直通孔，可见顶部开口和底部虚线轮廓\u000A\u002D **右下孔**：位于右侧低台的垂直通孔，周围有凸台结构\u000A\u000A**2. 槽特征（2个）**\u000A\u002D 位于零件底部前后方向的两个矩形凹槽（或开口），用虚线表示被遮挡的内部结构，呈左右对称或并列分布\u000A\u000A**3. 倒角特征（1个）**\u000A\u002D 位于零件最左上角顶部边缘的斜切倒角（Chamfer），用于去除毛刺或装配导向\u000A\u000A**4. 阶特征（2个）**\u000A\u002D **第一阶**：从左侧高台（最高）下降到中间连接平台（中等高度）\u000A\u002D **第二阶**：从中间平台下降到右侧低台（最低）\u000A\u002D 形成典型的\u0022阶梯状\u0022结构（Step）\u000A\u000A**5. 肩特征（1个）**\u000A\u002D 特指右下部孔周围的**圆柱形凸台**（Boss/Shoulder），该凸起平台高于周围表面，属于局部凸肩结构\u000A\u002D 左上孔为平面设计，无凸肩\u000A\u000A\u002D\u002D\u002D\u000A**注**：若按某些教材将\u0022肩\u0022定义为台阶处的垂直过渡面，则肩特征可能为2个（对应2个台阶的垂直立面），但通常机械制图中\u0022肩\u0022指凸起的环状或平台结构（如轴肩、凸肩），故此处按凸台计数为1个。\u000A\u000A📊 特征数量统计:\u000A\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u000A槽特征: 2个\u000A孔特征: 2个\u000A倒角特征: 1个\u000A肩特征: 1个\u000A阶特征: 2个\u000A\u000A🔢 总特征数量: 8\u000A\u000A\u000A📊 特征数量统计:\u000A\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u000A槽特征: 2个\u000A孔特征: 2个\u000A倒角特征: 1个\u000A肩特征: 1个\u000A阶特征: 2个\u000A\u000A🔢 总特征数量: 8\u000A\u000A🔧 需要人工审核？点击进行RAG标注: http://127.0.0.1:8000/rag/annotate/36/\u000A`;
+    navigator.clipboard.writeText(resultText).then(function() {
+        // Show success message
+        const btn = event.target.closest('button');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-success');
+        
+        setTimeout(function() {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-primary');
+        }, 2000);
+    }).catch(function(err) {
+        console.error('Failed to copy: ', err);
+        alert('Copy failed, please copy manually');
+    });
+}
+</script>
+
+    </main>
+
+    <footer class="bg-light py-4 mt-5">
+        <div class="container text-center">
+            <p class="text-muted mb-0">
+                <i class="fas fa-robot"></i> AI Mechanical Part Analyzer - Powered by Kimi AI
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+</body>
+</html>

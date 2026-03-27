@@ -4,6 +4,7 @@ from django.views import View
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .models import ProcessedImage, RAGImageFeature
 from .forms import RAGFeatureAnnotationForm
 from .advanced_rag_service import AdvancedRAGService
@@ -203,23 +204,32 @@ def rag_feature_list(request):
         approval_status='approved'
     ).select_related('processed_image').order_by('-reviewed_at')
     
-    # 统计信息
-    total_approved = rag_features.count()
+    # 分页处理
+    paginator = Paginator(rag_features, 10)  # 每页10条
+    page = request.GET.get('page', 1)
     
-    # 特征数量统计
+    try:
+        rag_features_page = paginator.page(page)
+    except PageNotAnInteger:
+        rag_features_page = paginator.page(1)
+    except EmptyPage:
+        rag_features_page = paginator.page(paginator.num_pages)
+    
+    # 统计信息（基于所有已审核特征）
+    all_approved = RAGImageFeature.objects.filter(approval_status='approved')
     feature_stats = {
-        'total_slots': sum(rag.slot_count for rag in rag_features),
-        'total_holes': sum(rag.hole_count for rag in rag_features),
-        'total_chamfers': sum(rag.chamfer_count for rag in rag_features),
-        'total_shoulders': sum(rag.shoulder_count for rag in rag_features),
-        'total_steps': sum(rag.step_count for rag in rag_features),
+        'total_slots': sum(rag.slot_count for rag in all_approved),
+        'total_holes': sum(rag.hole_count for rag in all_approved),
+        'total_chamfers': sum(rag.chamfer_count for rag in all_approved),
+        'total_shoulders': sum(rag.shoulder_count for rag in all_approved),
+        'total_steps': sum(rag.step_count for rag in all_approved),
     }
     
     context = {
-        'rag_features': rag_features,
-        'total_features': total_approved,  # 兼容模板变量名
-        'total_approved': total_approved,
-        'annotated_features': total_approved,  # 兼容模板变量名
+        'rag_features': rag_features_page,
+        'total_features': all_approved.count(),
+        'total_approved': all_approved.count(),
+        'annotated_features': all_approved.count(),
         'feature_stats': feature_stats,
     }
     

@@ -1,0 +1,5 @@
+原始字符串: 'centre drilling, drilling, milling'
+显示内容: centre drilling, drilling, milling
+长度: 34
+包含逗号!
+替换后: centre drilling[COMMA] drilling[COMMA] milling

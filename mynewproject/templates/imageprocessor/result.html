@@ -63,50 +63,6 @@
                         <h5 class="mb-3">
                             <i class="fas fa-cogs"></i> Manufacturing Feature Analysis
                         </h5>
-                        <div class="alert alert-info mb-3">
-                            <i class="fas fa-tools"></i>
-                            <strong>Feature Detection Results:</strong> Slot count, hole count, chamfer count, and step count
-                        </div>
-                        
-                        <!-- 格式化特征表格 -->
-                        {% if table_data %}
-                        <div class="card mb-3">
-                            <div class="card-header bg-success text-white">
-                                <h6 class="mb-0"><i class="fas fa-table"></i> Feature Operations Table</h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-bordered table-striped">
-                                        <thead>
-                                            <tr>
-                                                <th>Feature</th>
-                                                <th>Operation</th>
-                                                <th>Prior operations</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for row in table_data %}
-                                            <tr>
-                                                <td><strong>{{ row.0 }}</strong></td>
-                                                <td>{{ row.1 }}</td>
-                                                <td>{{ row.2 }}</td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                        
-                        <!-- 调试信息 -->
-                        <div class="alert alert-info">
-                            <strong>调试信息：</strong><br>
-                            processed_image.status: {{ processed_image.status }}<br>
-                            table_data存在: {% if table_data %}是{% else %}否{% endif %}<br>
-                            table_data长度: {{ table_data|length }}<br>
-                            table_data内容: {{ table_data }}
-                        </div>
                         
                         {% if processed_image.status == 'completed' %}
                             <!-- 格式化特征表格 -->
@@ -120,20 +76,20 @@
                                         <table class="table table-bordered table-striped">
                                             <thead>
                                                 <tr>
-                                                        <th>Feature</th>
-                                                        <th>Operation</th>
-                                                        <th>Prior operations</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {% for row in table_data %}
-                                                    <tr>
-                                                        <td><strong>{{ row.0 }}</strong></td>
-                                                        <td>{{ row.1 }}</td>
-                                                        <td>{{ row.2 }}</td>
-                                                    </tr>
-                                                    {% endfor %}
-                                                </tbody>
+                                                    <th>Feature</th>
+                                                    <th>Operation</th>
+                                                    <th>Prior operations</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for row in table_data %}
+                                                <tr>
+                                                    <td><strong>{{ row.0 }}</strong></td>
+                                                    <td>{{ row.1 }}</td>
+                                                    <td>{{ row.2 }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
                                         </table>
                                     </div>
                                 </div>

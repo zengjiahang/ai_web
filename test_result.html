@@ -1,0 +1,238 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mechanical Part Analysis - AI Analyzer</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                        <i class="fas fa-industry"></i> AI Mechanical Analyzer
+                    </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">
+                            <i class="fas fa-upload"></i> 分析零件
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/history/">
+                            <i class="fas fa-history"></i> 分析历史
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-shield"></i> 管理员
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/rag-admin/upload/">
+                                <i class="fas fa-plus"></i> RAG数据录入
+                            </a></li>
+                            <li><a class="dropdown-item" href="/rag/features/">
+                                <i class="fas fa-list"></i> RAG特征管理
+                            </a></li>
+                            <li><a class="dropdown-item" href="/rag/review/">
+                                <i class="fas fa-check-circle"></i> RAG审核
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container my-5">
+        
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="mb-4">
+            <a href="/" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left"></i> Back to Upload
+            </a>
+        </div>
+
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-industry"></i> Mechanical Part Feature Analysis
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="mb-3">
+                            <i class="fas fa-image"></i> Original Image
+                        </h5>
+                        <div class="text-center">
+                            <img src="/media/uploads/2026/04/01/test_rag_image_MVbgiWI.jpg" 
+                                 class="img-fluid rounded shadow-sm" 
+                                 alt="Processed Image"
+                                 style="max-height: 400px;">
+                        </div>
+                        <div class="mt-3">
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Filename:</strong></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Upload Time:</strong></td>
+                                    <td>2026-04-01 05:02</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Processing Time:</strong></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Status:</strong></td>
+                                    <td>
+                                        
+                                            <span class="badge bg-success">Completed</span>
+                                        
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5 class="mb-3">
+                            <i class="fas fa-cogs"></i> Manufacturing Feature Analysis
+                        </h5>
+                        
+                        
+                            <!-- 格式化特征表格 -->
+                            
+                            <!-- 如果没有表格数据，显示原始结果 -->
+                            <div class="result-content">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <p class="mb-0">根据该零件的等轴测图，我对各特征分析如下：<br><br>## 1. 槽特征（Slots）：**2 个（或 3 个）**<br>- **底部平行槽**：零件底部有两条平行的通槽（由虚线表示槽底轮廓），用于安装或减重<br>- **右侧弧形槽（可选）**：右侧较低部分的顶面有一个半圆柱形切口（弧形凹槽），若按槽类特征计算则为第 3 个<br><br>## 2. 倒角特征（Chamfers）：**1 个**<br>- **左上角倒角**：零件左侧最高处的顶角有一个明显的斜切面（倒角），用于去除锐边或装配导向<br><br>## 3. 孔特征（Holes）：**2 个**<br>- **左侧通孔**：在较高部分的顶部有一个圆柱形通孔（或阶梯孔）<br>- **右侧孔**：在较低部分的顶面有一个圆柱形孔（可能是盲孔或通孔，位于弧形槽区域内或旁边）<br><br>## 4. 阶特征（Steps）：**1 个**<br>- **主台阶**：零件整体呈&quot;L&quot;形或阶梯状轮廓，从左侧较高平面过渡到右侧较低平面，形成一级明显的台阶<br><br>## 5. 肩特征（Shoulders）：**1 个**<br>- **垂直台肩**：连接左侧高阶与右侧低阶之间的垂直过渡面，构成肩特征（也可理解为台阶处的垂直立面）<br><br>---<br><br>**补充说明**：<br>- 若将右侧的弧形切口不计入槽类，则槽为 **2 个**；若计入则为 **3 个**<br>- 底部的槽为通槽（贯穿前后），虚线表示槽的底面与背面轮廓<br>- 该零件整体可视为一个带有多处局部加工的阶梯块状零件<br><br>📊 特征数量统计:<br>==============================<br>槽特征: 0个<br>孔特征: 0个<br>倒角特征: 0个<br>肩特征: 0个<br>阶特征: 0个<br><br>🔢 总特征数量: 0<br><br><br>🔍 RAG增强分析信息:<br>==============================<br>参考相似图片数量: 1<br>相似图片详情:<br>  1. 图片ID: 26 (相似度: 100.0%)<br>     特征: 槽2 孔2 倒角1 肩1 阶1<br><br>📊 特征数量统计:<br>==============================<br>槽特征: 0个<br>孔特征: 0个<br>倒角特征: 0个<br>肩特征: 0个<br>阶特征: 0个<br><br>🔢 总特征数量: 0<br></p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            
+                            <div class="mt-4">
+                                <h6 class="mb-3">Quick Actions:</h6>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="copyTable()">
+                                        <i class="fas fa-copy"></i> 复制表格数据
+                                    </button>
+                                    <a href="/" class="btn btn-outline-success btn-sm">
+                                        <i class="fas fa-plus"></i> 分析新图片
+                                    </a>
+                                    <a href="/history/" class="btn btn-outline-info btn-sm">
+                                        <i class="fas fa-history"></i> 查看历史
+                                    </a>
+                                    <a href="/rag/annotate/60/" class="btn btn-outline-warning btn-sm">
+                                        <i class="fas fa-edit"></i> RAG标注
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <!-- RAG增强信息 -->
+                            
+                            <div class="mt-4">
+                                <div class="alert alert-success">
+                                    <h6 class="alert-heading">
+                                        <i class="fas fa-brain"></i> RAG Enhanced Analysis
+                                    </h6>
+                                    <p class="mb-0">This analysis was enhanced using multi-modal RAG system with similar part references.</p>
+                                    <a href="/rag/features/" class="alert-link">
+                                        <i class="fas fa-search"></i> 查看RAG特征
+                                    </a>
+                                </div>
+                            </div>
+                            
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyTable() {
+    const table = document.querySelector('.table-bordered');
+    if (!table) {
+        alert('Table not found');
+        return;
+    }
+    
+    let tableText = 'Feature\tOperation\tPrior operations\n';
+    const rows = table.querySelectorAll('tbody tr');
+    
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 3) {
+            tableText += `${cells[0].innerText.trim()}\t${cells[1].innerText.trim()}\t${cells[2].innerText.trim()}\n`;
+        }
+    });
+    
+    navigator.clipboard.writeText(tableText).then(function() {
+        const btn = event.target.closest('button');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-success');
+        
+        setTimeout(function() {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-primary');
+        }, 2000);
+    }).catch(function(err) {
+        console.error('Failed to copy: ', err);
+        alert('Copy failed, please copy manually');
+    });
+}
+
+function copyResult() {
+    const resultText = `根据该零件的等轴测图，我对各特征分析如下：\u000A\u000A## 1. 槽特征（Slots）：**2 个（或 3 个）**\u000A\u002D **底部平行槽**：零件底部有两条平行的通槽（由虚线表示槽底轮廓），用于安装或减重\u000A\u002D **右侧弧形槽（可选）**：右侧较低部分的顶面有一个半圆柱形切口（弧形凹槽），若按槽类特征计算则为第 3 个\u000A\u000A## 2. 倒角特征（Chamfers）：**1 个**\u000A\u002D **左上角倒角**：零件左侧最高处的顶角有一个明显的斜切面（倒角），用于去除锐边或装配导向\u000A\u000A## 3. 孔特征（Holes）：**2 个**\u000A\u002D **左侧通孔**：在较高部分的顶部有一个圆柱形通孔（或阶梯孔）\u000A\u002D **右侧孔**：在较低部分的顶面有一个圆柱形孔（可能是盲孔或通孔，位于弧形槽区域内或旁边）\u000A\u000A## 4. 阶特征（Steps）：**1 个**\u000A\u002D **主台阶**：零件整体呈\u0022L\u0022形或阶梯状轮廓，从左侧较高平面过渡到右侧较低平面，形成一级明显的台阶\u000A\u000A## 5. 肩特征（Shoulders）：**1 个**\u000A\u002D **垂直台肩**：连接左侧高阶与右侧低阶之间的垂直过渡面，构成肩特征（也可理解为台阶处的垂直立面）\u000A\u000A\u002D\u002D\u002D\u000A\u000A**补充说明**：\u000A\u002D 若将右侧的弧形切口不计入槽类，则槽为 **2 个**；若计入则为 **3 个**\u000A\u002D 底部的槽为通槽（贯穿前后），虚线表示槽的底面与背面轮廓\u000A\u002D 该零件整体可视为一个带有多处局部加工的阶梯块状零件\u000A\u000A📊 特征数量统计:\u000A\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u000A槽特征: 0个\u000A孔特征: 0个\u000A倒角特征: 0个\u000A肩特征: 0个\u000A阶特征: 0个\u000A\u000A🔢 总特征数量: 0\u000A\u000A\u000A🔍 RAG增强分析信息:\u000A\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u000A参考相似图片数量: 1\u000A相似图片详情:\u000A  1. 图片ID: 26 (相似度: 100.0%)\u000A     特征: 槽2 孔2 倒角1 肩1 阶1\u000A\u000A📊 特征数量统计:\u000A\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u003D\u000A槽特征: 0个\u000A孔特征: 0个\u000A倒角特征: 0个\u000A肩特征: 0个\u000A阶特征: 0个\u000A\u000A🔢 总特征数量: 0\u000A`;
+    navigator.clipboard.writeText(resultText).then(function() {
+        // Show success message
+        const btn = event.target.closest('button');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-success');
+        
+        setTimeout(function() {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-primary');
+        }, 2000);
+    }).catch(function(err) {
+        console.error('Failed to copy: ', err);
+        alert('Copy failed, please copy manually');
+    });
+}
+</script>
+
+    </main>
+
+    <footer class="bg-light py-4 mt-5">
+        <div class="container text-center">
+            <p class="text-muted mb-0">
+                <i class="fas fa-robot"></i> AI Mechanical Part Analyzer - Powered by Kimi AI
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    
+</body>
+</html>

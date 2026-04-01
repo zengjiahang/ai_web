@@ -302,10 +302,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // 表单提交
+    // 表单提交 - 使用AJAX
     uploadForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
         if (!imageInput.files[0]) {
-            e.preventDefault();
             showError('请先选择要上传的图片');
             return;
         }
@@ -314,7 +315,66 @@ document.addEventListener('DOMContentLoaded', function() {
         uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 分析中...';
         uploadBtn.disabled = true;
         cancelBtn.disabled = true;
+
+        // 创建FormData
+        const formData = new FormData();
+        formData.append('image', imageInput.files[0]);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        // AJAX请求
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/', true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.success) {
+                        // 成功，跳转到结果页面
+                        window.location.href = '/result/' + response.image_id + '/';
+                    } else {
+                        // 失败，显示错误
+                        showError(response.error || '上传失败，请重试');
+                        resetUploadButton();
+                    }
+                } catch (e) {
+                    // 如果不是JSON响应，可能是HTML重定向
+                    if (xhr.responseText.includes('Mechanical Part Feature Analysis')) {
+                        // 提取图片ID
+                        const match = xhr.responseText.match(/\/result\/(\d+)\//);
+                        if (match) {
+                            window.location.href = '/result/' + match[1] + '/';
+                        } else {
+                            // 直接显示响应内容
+                            document.open();
+                            document.write(xhr.responseText);
+                            document.close();
+                        }
+                    } else {
+                        showError('服务器响应格式错误');
+                        resetUploadButton();
+                    }
+                }
+            } else {
+                showError('上传失败，请重试');
+                resetUploadButton();
+            }
+        };
+
+        xhr.onerror = function() {
+            showError('网络错误，请检查连接');
+            resetUploadButton();
+        };
+
+        xhr.send(formData);
     });
+
+    function resetUploadButton() {
+        uploadBtn.innerHTML = '<i class="fas fa-upload"></i> 开始分析';
+        uploadBtn.disabled = false;
+        cancelBtn.disabled = false;
+    }
 });
 </script>
 {% endblock %}

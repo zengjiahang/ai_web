@@ -9,8 +9,10 @@ from .forms import ImageUploadForm
 from .admin_forms import AdminRAGUploadForm
 from .models import ProcessedImage, RAGImageFeature
 from .kimi_service import KimiService
+from .image_matcher import ImageMatcher
 from .advanced_rag_service import AdvancedRAGService
 import json
+import os
 
 
 def format_features_to_table(features):
@@ -19,6 +21,7 @@ def format_features_to_table(features):
     
     Args:
         features: 特征数量字典 {'slot': 2, 'hole': 4, 'chamfer': 1, 'shoulder': 0, 'step': 1}
+                  或 {'槽特征': 2, '孔特征': 4, '倒角特征': 1, '肩特征': 0, '阶特征': 1}
     
     Returns:
         list: 表格行数据，每行包含 [Feature, Operation, Prior operations]
@@ -26,8 +29,14 @@ def format_features_to_table(features):
     table_rows = []
     feature_counter = 1
     
+    # 支持中英文键名
+    slot_count = features.get('slot', 0) or features.get('槽特征', 0)
+    hole_count = features.get('hole', 0) or features.get('孔特征', 0)
+    chamfer_count = features.get('chamfer', 0) or features.get('倒角特征', 0)
+    shoulder_count = features.get('shoulder', 0) or features.get('肩特征', 0)
+    step_count = features.get('step', 0) or features.get('阶特征', 0)
+    
     # 槽特征 - milling，需要两行
-    slot_count = features.get('slot', 0)
     for i in range(slot_count):
         feature_name = f'F{feature_counter}'
         table_rows.append([feature_name, 'milling', 'none'])
@@ -35,7 +44,6 @@ def format_features_to_table(features):
         feature_counter += 1
     
     # 孔特征 - 分为三行：milling, drilling, centre drilling
-    hole_count = features.get('hole', 0)
     for i in range(hole_count):
         feature_name = f'F{feature_counter}'
         table_rows.append([feature_name, 'milling', 'none'])
@@ -44,7 +52,6 @@ def format_features_to_table(features):
         feature_counter += 1
     
     # 倒角特征 - 两行milling
-    chamfer_count = features.get('chamfer', 0)
     for i in range(chamfer_count):
         feature_name = f'F{feature_counter}'
         table_rows.append([feature_name, 'milling', 'none'])
@@ -52,7 +59,6 @@ def format_features_to_table(features):
         feature_counter += 1
     
     # 肩特征 - 两行milling
-    shoulder_count = features.get('shoulder', 0)
     for i in range(shoulder_count):
         feature_name = f'F{feature_counter}'
         table_rows.append([feature_name, 'milling', 'none'])
@@ -60,7 +66,6 @@ def format_features_to_table(features):
         feature_counter += 1
     
     # 阶特征 - 两行milling
-    step_count = features.get('step', 0)
     for i in range(step_count):
         feature_name = f'F{feature_counter}'
         table_rows.append([feature_name, 'milling', 'none'])
@@ -97,74 +102,89 @@ class UserImageUploadView(View):
             processed_image.save()
             
             try:
-                # 第一步：基础AI分析（不使用RAG）
                 kimi_service = KimiService(enable_rag=True)
                 
-                # 第二步：进行RAG增强分析（使用多图片分析方法）
-                if kimi_service.advanced_rag_service:
-                    # 查找相似图片（基于已审核的特征）
-                    rag_service = AdvancedRAGService()
-                    
-                    # 先进行基础分析获取初步特征
-                    basic_result = kimi_service.analyze_image(
-                        processed_image.image.file,
-                        prompt="Please analyze this mechanical workpiece and identify all manufacturing features including slots, holes, chamfers, and steps. Provide exact counts for each feature type.",
-                        use_rag=False
-                    )
-                    
-                    if basic_result and basic_result['success']:
-                        # 从基础分析结果创建临时RAG特征（待审核状态）
-                        rag_feature = rag_service.create_rag_feature_from_ai_result(processed_image)
+                # 使用图像匹配算法查找RAG库中的相似图片
+                image_matcher = ImageMatcher()
+                
+                # 获取RAG库中已审核的图片
+                approved_rags = RAGImageFeature.objects.filter(
+                    approval_status='approved'
+                ).select_related('processed_image')
+                
+                # 准备候选图片列表
+                candidate_images = []
+                for rag in approved_rags:
+                    img = rag.processed_image
+                    img_path = img.image.path
+                    if os.path.exists(img_path):
+                        candidate_images.append((img_path, {
+                            'processed_image': img,
+                            'rag_feature': rag,
+                            'features': rag.feature_vector,
+                            'positions': {
+                                'slot': rag.slot_positions,
+                                'hole': rag.hole_positions,
+                                'chamfer': rag.chamfer_positions,
+                                'shoulder': rag.shoulder_positions,
+                                'step': rag.step_positions
+                            }
+                        }))
+                
+                # 查找最相似的3张图片
+                query_image_path = processed_image.image.path
+                similar_images = image_matcher.find_similar_images_by_image(
+                    query_image_path, 
+                    candidate_images, 
+                    top_k=3
+                )
+                
+                print(f"找到 {len(similar_images)} 张相似图片")
+                
+                # 生成增强提示词
+                if similar_images:
+                    prompt = """请分析这张机械零件图像，识别所有制造特征。
+
+要求：
+1. 准确识别槽特征、孔特征、倒角特征、肩特征、阶特征
+2. 提供每个特征的准确数量
+3. 描述特征的位置和类型
+4. 提供详细的计数依据
+
+## 参考相似零件分析
+
+"""
+                    for i, similar in enumerate(similar_images, 1):
+                        metadata = similar['metadata']
+                        features = metadata['features']
+                        positions = metadata['positions']
                         
-                        if rag_feature:
-                            # 查找相似图片（基于已审核的特征）
-                            similar_images = rag_service.find_similar_images_for_new_upload(
-                                basic_result.get('features', {})
-                            )
-                            
-                            if similar_images:
-                                # 准备参考图片数据
-                                reference_images = []
-                                for similar in similar_images:
-                                    ref_data = {
-                                        'image': similar['processed_image'].image,
-                                        'image_id': similar['processed_image'].id,
-                                        'features': similar['features'],
-                                        'positions': similar['positions']
-                                    }
-                                    reference_images.append(ref_data)
-                                
-                                # 使用多图片分析方法
-                                enhanced_result = kimi_service.analyze_image_with_references(
-                                    processed_image.image.file,
-                                    reference_images,
-                                    "Please analyze this mechanical workpiece and identify all manufacturing features including slots, holes, chamfers, and steps. Provide exact counts for each feature type."
-                                )
-                                
-                                if enhanced_result and enhanced_result['success']:
-                                    # 使用增强结果
-                                    result = enhanced_result
-                                    result['rag_similar_images'] = similar_images
-                                    print(f"✅ 用户上传多图片RAG增强分析完成，发送了 {len(reference_images)} 张相似图片给AI")
-                                else:
-                                    print("⚠️  多图片RAG增强分析失败，使用基础分析结果")
-                                    result = basic_result
-                            else:
-                                print("ℹ️  没有找到相似图片，使用基础分析结果")
-                                result = basic_result
-                        else:
-                            print("⚠️  创建RAG特征失败，使用基础分析结果")
-                            result = basic_result
-                    else:
-                        print("⚠️  基础分析失败，无法进行RAG增强")
-                        result = basic_result
+                        prompt += f"""
+### 相似零件 #{i} (相似度: {similar['similarity']:.2%})
+- **特征数量**: 槽{features['slot']}个, 孔{features['hole']}个, 倒角{features['chamfer']}个, 肩{features['shoulder']}个, 阶{features['step']}个
+- **特征位置描述**:
+"""
+                        if positions['slot']:
+                            prompt += f"  - 槽特征: {positions['slot']}\n"
+                        if positions['hole']:
+                            prompt += f"  - 孔特征: {positions['hole']}\n"
+                        if positions['chamfer']:
+                            prompt += f"  - 倒角特征: {positions['chamfer']}\n"
+                        if positions['shoulder']:
+                            prompt += f"  - 肩特征: {positions['shoulder']}\n"
+                        if positions['step']:
+                            prompt += f"  - 阶特征: {positions['step']}\n"
+                    
+                    prompt += "\n请参考以上相似零件的特征位置和描述，分析用户上传的图片，返回表格形式的特征统计结果。"
                 else:
-                    # 如果没有RAG服务，只进行基础分析
-                    result = kimi_service.analyze_image(
-                        processed_image.image.file,
-                        prompt="Please analyze this mechanical workpiece and identify all manufacturing features including slots, holes, chamfers, and steps. Provide exact counts for each feature type.",
-                        use_rag=False
-                    )
+                    prompt = "Please analyze this mechanical workpiece and identify all manufacturing features including slots, holes, chamfers, and steps. Provide exact counts for each feature type."
+                
+                # 调用AI分析
+                result = kimi_service.analyze_image(
+                    processed_image.image.file,
+                    prompt=prompt,
+                    use_rag=False
+                )
                 
                 if result and result['success']:
                     # 构建包含特征数量的完整结果
@@ -177,16 +197,17 @@ class UserImageUploadView(View):
                     full_result = f"{result['result']}\n\n"
                     
                     # 添加RAG信息（如果有）
-                    if 'rag_similar_images' in result:
-                        similar_images = result['rag_similar_images']
+                    if similar_images:
                         full_result += "🔍 RAG增强分析信息:\n"
                         full_result += "=" * 30 + "\n"
                         full_result += f"参考相似图片数量: {len(similar_images)}\n"
                         if similar_images:
                             full_result += "相似图片详情:\n"
-                            for i, img in enumerate(similar_images, 1):
-                                full_result += f"  {i}. 图片ID: {img['processed_image'].id} (相似度: {img['similarity']:.1%})\n"
-                                full_result += f"     特征: 槽{img['features']['slot']} 孔{img['features']['hole']} 倒角{img['features']['chamfer']} 肩{img['features']['shoulder']} 阶{img['features']['step']}\n"
+                            for i, similar in enumerate(similar_images, 1):
+                                metadata = similar['metadata']
+                                features = metadata['features']
+                                full_result += f"  {i}. 图片ID: {metadata['processed_image'].id} (相似度: {similar['similarity']:.1%})\n"
+                                full_result += f"     特征: 槽{features['slot']} 孔{features['hole']} 倒角{features['chamfer']} 肩{features['shoulder']} 阶{features['step']}\n"
                         full_result += "\n"
                     
                     if feature_counts:
@@ -205,12 +226,8 @@ class UserImageUploadView(View):
                     
                     processed_image.result = full_result
                     processed_image.status = 'completed'
-                    
-                    # 添加RAG标注链接
-                    if rag_feature:
-                        processed_image.result += f"\n🔧 需要人工审核？点击进行RAG标注: http://127.0.0.1:8000/rag/annotate/{processed_image.id}/\n"
                 else:
-                    error_msg = result.get('error', 'Unknown error') if result else 'RAG analysis failed'
+                    error_msg = result.get('error', 'Unknown error') if result else 'Analysis failed'
                     processed_image.result = f"处理失败: {error_msg}"
                     processed_image.status = 'failed'
                 
@@ -221,8 +238,8 @@ class UserImageUploadView(View):
                         'success': True,
                         'result': processed_image.result,
                         'image_url': processed_image.image.url,
-                        'status': processed_image.status,
-                        'rag_annotation_url': f"/rag/annotate/{processed_image.id}/" if rag_feature else None
+                        'image_id': processed_image.id,
+                        'status': processed_image.status
                     })
                 else:
                     return render(request, 'imageprocessor/result.html', {

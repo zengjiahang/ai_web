@@ -13,6 +13,10 @@ urlpatterns = [
     path('result/<int:image_id>/', views.result_view, name='result'),
     path('history/', views.history_view, name='history'),
     
+    # 工艺选择API
+    path('api/save-process-selections/', views.SaveProcessSelectionsAPIView.as_view(), name='save_process_selections'),
+    path('api/get-process-selections/', views.GetProcessSelectionsAPIView.as_view(), name='get_process_selections'),
+    
     # 管理员RAG上传路径 - 避免与admin冲突
     path('rag-admin/upload/', dual_upload_views.AdminRAGUploadView.as_view(), name='admin_rag_upload'),
     

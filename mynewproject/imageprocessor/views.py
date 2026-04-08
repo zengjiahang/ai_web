@@ -6,7 +6,7 @@ from django.views import View
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.utils import timezone
 from .forms import ImageUploadForm
-from .models import ProcessedImage, RAGImageFeature
+from .models import ProcessedImage, RAGImageFeature, ProcessSelection
 from .kimi_service import KimiService
 from .image_matcher import ImageMatcher
 import json
@@ -334,7 +334,7 @@ def format_features_to_table(features):
     for i in range(chamfer_count):
         feature_name = f'F{feature_counter}'
         table_rows.append([feature_name, 'milling', 'none'])
-        table_rows.append([feature_name, 'milling', 'none'])
+        table_rows.append([feature_name, 'milling', 'chamfer'])  # 第二行添加chamfer标记
         feature_counter += 1
     
     shoulder_count = features.get('shoulder', 0)
@@ -435,3 +435,106 @@ def history_view(request):
     return render(request, 'imageprocessor/history.html', {
         'images': images_page
     })
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class SaveProcessSelectionsAPIView(View):
+    """保存工艺选择API"""
+    
+    def post(self, request):
+        """保存用户选择的Machine和Tool"""
+        try:
+            data = json.loads(request.body)
+            image_id = data.get('image_id')
+            selections = data.get('selections', [])
+            
+            # 获取图片对象
+            processed_image = get_object_or_404(ProcessedImage, id=image_id)
+            
+            # 删除旧的记录
+            ProcessSelection.objects.filter(processed_image=processed_image).delete()
+            
+            # 为每个特征的不同行分配sequence号
+            feature_sequences = {}
+            
+            # 保存新的选择
+            for selection_data in selections:
+                feature_name = selection_data.get('feature_name')
+                operation = selection_data.get('operation')
+                
+                # 为每个特征的不同行分配sequence号
+                key = f"{feature_name}_{operation}"
+                if key not in feature_sequences:
+                    feature_sequences[key] = 0
+                else:
+                    feature_sequences[key] += 1
+                
+                ProcessSelection.objects.create(
+                    processed_image=processed_image,
+                    feature_name=feature_name,
+                    operation=operation,
+                    prior_operations=selection_data.get('prior_operations'),
+                    sequence=feature_sequences[key],
+                    machine=selection_data.get('machine', ''),
+                    tool=selection_data.get('tool', ''),
+                    is_chamfer_second=selection_data.get('is_chamfer_second', False)
+                )
+            
+            return JsonResponse({
+                'success': True,
+                'message': '保存成功'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=400)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class GetProcessSelectionsAPIView(View):
+    """获取工艺选择API"""
+    
+    def get(self, request):
+        """获取已保存的工艺选择"""
+        try:
+            image_id = request.GET.get('image_id')
+            
+            if not image_id:
+                return JsonResponse({
+                    'success': False,
+                    'error': '缺少image_id参数'
+                }, status=400)
+            
+            # 获取图片对象
+            processed_image = get_object_or_404(ProcessedImage, id=image_id)
+            
+            # 获取所有选择
+            selections = ProcessSelection.objects.filter(
+                processed_image=processed_image
+            ).order_by('feature_name', 'sequence', 'operation')
+            
+            # 序列化为JSON
+            selections_data = []
+            for selection in selections:
+                selections_data.append({
+                    'feature_name': selection.feature_name,
+                    'operation': selection.operation,
+                    'prior_operations': selection.prior_operations,
+                    'sequence': selection.sequence,
+                    'machine': selection.machine,
+                    'tool': selection.tool,
+                    'is_chamfer_second': selection.is_chamfer_second
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'selections': selections_data
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=400)

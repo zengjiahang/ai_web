@@ -79,14 +79,26 @@
                                                     <th>Feature</th>
                                                     <th>Operation</th>
                                                     <th>Prior operations</th>
+                                                    <th>Machine</th>
+                                                    <th>Tool</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {% for row in table_data %}
-                                                <tr>
+                                                <tr data-feature="{{ row.0 }}" data-operation="{{ row.1 }}">
                                                     <td><strong>{{ row.0 }}</strong></td>
                                                     <td>{{ row.1 }}</td>
                                                     <td>{{ row.2 }}</td>
+                                                    <td>
+                                                        <div class="machine-selector" id="machine_{{ row.0 }}_{{ row.1 }}">
+                                                            <!-- Machine选择器将通过JS动态生成 -->
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div class="tool-selector" id="tool_{{ row.0 }}_{{ row.1 }}">
+                                                            <!-- Tool选择器将通过JS动态生成 -->
+                                                        </div>
+                                                    </td>
                                                 </tr>
                                                 {% endfor %}
                                             </tbody>
@@ -120,6 +132,9 @@
                                     <a href="{% url 'imageprocessor:rag_annotation' processed_image.id %}" class="btn btn-outline-warning btn-sm">
                                         <i class="fas fa-edit"></i> RAG标注
                                     </a>
+                                    <button class="btn btn-outline-success btn-sm" onclick="saveProcessSelections()">
+                                        <i class="fas fa-save"></i> 保存选择
+                                    </button>
                                 </div>
                             </div>
                             
@@ -165,6 +180,486 @@
 </div>
 
 <script>
+// Machine和Tool选项配置
+const MACHINE_TOOL_CONFIG = {
+    'milling': {
+        machines: [
+            { group: 1, options: ['m1', 'm2'] },
+            { group: 2, options: ['m3', 'm4'] }
+        ],
+        tools: ['t1', 't2', 't3', 't4', 't5', 't6', 't15']
+    },
+    'drilling': {
+        machines: ['m1', 'm2', 'm3', 'm4', 'm5'],
+        tools: ['t7', 't8', 't9', 't12', 't13', 't14', 't16', 't17']
+    },
+    'centre drilling': {
+        machines: ['m1', 'm2', 'm3', 'm4', 'm5'],
+        tools: ['t10']  // 固定
+    }
+};
+
+// 当前是否为查看模式（保存后只显示结果）
+let isViewMode = false;
+
+// 页面加载完成后初始化选择器
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSelectors();
+    loadSavedSelections();
+});
+
+// 初始化选择器
+function initializeSelectors() {
+    const rows = document.querySelectorAll('tbody tr[data-feature]');
+    
+    rows.forEach((row, index) => {
+        const feature = row.getAttribute('data-feature');
+        const operation = row.getAttribute('data-operation');
+        const rowId = `${feature}_${index}`; // 为每行创建唯一ID
+        
+        // 存储行ID到data属性
+        row.setAttribute('data-row-id', rowId);
+        
+        const machineContainer = row.querySelector(`#machine_${feature}_${operation.replace(/\s/g, '_')}`);
+        const toolContainer = row.querySelector(`#tool_${feature}_${operation.replace(/\s/g, '_')}`);
+        
+        if (!machineContainer || !toolContainer) return;
+        
+        // 更新容器ID
+        machineContainer.id = `machine_${rowId}`;
+        toolContainer.id = `tool_${rowId}`;
+        
+        // 生成Machine选择器
+        generateMachineSelector(machineContainer, operation, rowId);
+        
+        // 生成Tool选择器
+        generateToolSelector(toolContainer, operation, rowId);
+    });
+}
+
+// 生成Machine选择器
+function generateMachineSelector(container, operation, rowId) {
+    const config = MACHINE_TOOL_CONFIG[operation];
+    if (!config) return;
+    
+    let html = '';
+    
+    if (operation === 'milling') {
+        // milling使用两组radio，每组只能选一个
+        config.machines.forEach((group, groupIndex) => {
+            html += '<div class="machine-group mb-2">';
+            html += `<small class="text-muted d-block mb-1">选项 ${groupIndex + 1}:</small>`;
+            group.options.forEach(machine => {
+                html += `
+                    <label class="me-2">
+                        <input type="radio" 
+                               name="machine_${rowId}_group${groupIndex}" 
+                               value="${machine}" 
+                               onchange="handleMachineChange('${rowId}', '${machine}')">
+                        ${machine}
+                    </label>
+                `;
+            });
+            html += '</div>';
+        });
+    } else if (operation === 'centre drilling') {
+        // centre drilling使用checkbox，可以多选
+        html += '<div class="machine-group">';
+        config.machines.forEach(machine => {
+            html += `
+                <label class="me-2">
+                    <input type="checkbox" 
+                           name="machine_${rowId}" 
+                           value="${machine}"
+                           onchange="handleMachineChange('${rowId}', '${machine}')">
+                    ${machine}
+                </label>
+            `;
+        });
+        html += '</div>';
+    } else {
+        // drilling使用checkbox，可以多选
+        html += '<div class="machine-group">';
+        config.machines.forEach(machine => {
+            html += `
+                <label class="me-2">
+                    <input type="checkbox" 
+                           name="machine_${rowId}" 
+                           value="${machine}"
+                           onchange="handleMachineChange('${rowId}', '${machine}')">
+                    ${machine}
+                </label>
+            `;
+        });
+        html += '</div>';
+    }
+    
+    container.innerHTML = html;
+}
+
+// 生成Tool选择器
+function generateToolSelector(container, operation, rowId) {
+    const config = MACHINE_TOOL_CONFIG[operation];
+    if (!config) return;
+    
+    let html = '';
+    
+    // 检查是否为倒角的第二个milling
+    const isChamferSecond = checkIsChamferSecond(rowId, operation);
+    
+    if (isChamferSecond && operation === 'milling') {
+        // 倒角第二工序，Tool固定为t11
+        html = '<span class="badge bg-info">t11 (固定)</span>';
+    } else if (operation === 'centre drilling') {
+        // centre drilling固定t10
+        html = '<span class="badge bg-info">t10 (固定)</span>';
+    } else {
+        // 其他情况，显示Tool选择
+        config.tools.forEach(tool => {
+            html += `
+                <label class="me-2">
+                    <input type="checkbox" 
+                           name="tool_${rowId}" 
+                           value="${tool}"
+                           onchange="handleToolChange('${rowId}', '${tool}')">
+                    ${tool}
+                </label>
+            `;
+        });
+    }
+    
+    container.innerHTML = html;
+}
+
+// 检查是否为倒角的第二个milling
+function checkIsChamferSecond(rowId, operation) {
+    if (operation !== 'milling') return false;
+    
+    // 倒角特征有两行milling，第二行的特征名相同
+    const rows = document.querySelectorAll('tbody tr[data-feature]');
+    const [feature] = rowId.split('_');
+    const featureRows = Array.from(rows).filter(r => r.getAttribute('data-feature') === feature);
+    
+    // 找到所有倒角相关的行
+    const chamferRows = featureRows.filter(r => {
+        const priorOps = r.children[2].textContent;
+        return priorOps.toLowerCase().includes('chamfer');
+    });
+    
+    // 如果不是倒角特征，返回false
+    if (chamferRows.length === 0) return false;
+    
+    // 找到当前行在倒角行中的索引
+    const currentRow = chamferRows.find(r => r.getAttribute('data-row-id') === rowId);
+    const currentIndex = chamferRows.indexOf(currentRow);
+    
+    // 如果是倒角且不是第一行，返回true
+    return currentIndex > 0;
+}
+
+// 处理Machine选择变化
+function handleMachineChange(feature, machine) {
+    console.log(`Machine changed for ${feature}: ${machine}`);
+}
+
+// 处理Tool选择变化
+function handleToolChange(feature, tool) {
+    console.log(`Tool changed for ${feature}: ${tool}`);
+}
+
+// 保存所有选择
+function saveProcessSelections() {
+    const selections = [];
+    const rows = document.querySelectorAll('tbody tr[data-feature]');
+    
+    // 为每个特征的不同行分配sequence号
+    const featureSequences = {};
+    
+    rows.forEach(row => {
+        const feature = row.getAttribute('data-feature');
+        const operation = row.getAttribute('data-operation');
+        const rowId = row.getAttribute('data-row-id');
+        const priorOps = row.children[2].textContent;
+        
+        // 为每个特征的不同行分配sequence号
+        const key = `${feature}_${operation}`;
+        if (key in featureSequences) {
+            featureSequences[key]++;
+        } else {
+            featureSequences[key] = 0;
+        }
+        
+        // 获取选中的Machine
+        let machines = [];
+        if (operation === 'milling') {
+            // milling有两组radio，需要分别获取
+            for (let i = 0; i < 2; i++) {
+                const selectedRadio = document.querySelector(`input[name="machine_${rowId}_group${i}"]:checked`);
+                if (selectedRadio) {
+                    machines.push(selectedRadio.value);
+                }
+            }
+        } else {
+            // drilling和centre drilling使用checkbox
+            const machineInputs = document.querySelectorAll(`input[name="machine_${rowId}"]:checked`);
+            machines = Array.from(machineInputs).map(input => input.value);
+        }
+        
+        // 获取选中的Tool
+        const toolInputs = document.querySelectorAll(`input[name="tool_${rowId}"]:checked`);
+        const tools = Array.from(toolInputs).map(input => input.value);
+        
+        // 检查是否为倒角第二工序
+        const isChamferSecond = checkIsChamferSecond(rowId, operation);
+        
+        selections.push({
+            feature_name: feature,
+            operation: operation,
+            prior_operations: priorOps,
+            sequence: featureSequences[key],
+            machine: machines.join(','),
+            tool: tools.join(','),
+            is_chamfer_second: isChamferSecond
+        });
+    });
+    
+    // 发送到后端
+    fetch('/api/save-process-selections/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            image_id: {{ processed_image.id }},
+            selections: selections
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('保存成功！');
+            // 切换到查看模式
+            switchToViewMode();
+        } else {
+            alert('保存失败：' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('保存失败，请重试');
+    });
+}
+
+// 切换到查看模式
+function switchToViewMode() {
+    isViewMode = true;
+    const rows = document.querySelectorAll('tbody tr[data-feature]');
+    
+    rows.forEach(row => {
+        const rowId = row.getAttribute('data-row-id');
+        const machineContainer = row.querySelector(`#machine_${rowId}`);
+        const toolContainer = row.querySelector(`#tool_${rowId}`);
+        
+        if (machineContainer && toolContainer) {
+            // 获取选中的值
+            const machineInputs = document.querySelectorAll(`input[name="machine_${rowId}"]:checked`);
+            const machines = Array.from(machineInputs).map(input => input.value).join(',');
+            
+            const toolInputs = document.querySelectorAll(`input[name="tool_${rowId}"]:checked`);
+            const tools = Array.from(toolInputs).map(input => input.value).join(',');
+            
+            // 替换为纯文本显示
+            machineContainer.innerHTML = `<strong>${machines || '-'}</strong>`;
+            toolContainer.innerHTML = `<strong>${tools || '-'}</strong>`;
+        }
+    });
+    
+    // 更新按钮状态
+    const saveBtn = document.querySelector('button[onclick="saveProcessSelections()"]');
+    if (saveBtn) {
+        saveBtn.style.display = 'none';
+    }
+    
+    // 添加编辑按钮
+    const quickActions = document.querySelector('.d-flex.gap-2.flex-wrap');
+    if (quickActions && !document.querySelector('button[onclick="switchToEditMode()"]')) {
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn btn-outline-warning btn-sm';
+        editBtn.onclick = switchToEditMode;
+        editBtn.innerHTML = '<i class="fas fa-edit"></i> 编辑选择';
+        quickActions.appendChild(editBtn);
+    }
+}
+
+// 切换到编辑模式
+function switchToEditMode() {
+    isViewMode = false;
+    
+    // 重新初始化选择器
+    initializeSelectors();
+    
+    // 手动恢复保存的选择（不调用loadSavedSelections，因为它会自动切换到查看模式）
+    restoreSelectionsManually();
+    
+    // 更新按钮状态
+    const saveBtn = document.querySelector('button[onclick="saveProcessSelections()"]');
+    if (saveBtn) {
+        saveBtn.style.display = 'inline-block';
+    }
+    
+    // 移除编辑按钮
+    const editBtn = document.querySelector('button[onclick="switchToEditMode()"]');
+    if (editBtn) {
+        editBtn.remove();
+    }
+}
+
+// 手动恢复保存的选择
+function restoreSelectionsManually() {
+    fetch(`/api/get-process-selections/?image_id={{ processed_image.id }}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.selections && data.selections.length > 0) {
+                // 为每个特征的不同行分配sequence号
+                const featureSequences = {};
+                const rows = document.querySelectorAll('tbody tr[data-feature]');
+                
+                // 首先为每行分配sequence号
+                rows.forEach(row => {
+                    const feature = row.getAttribute('data-feature');
+                    const operation = row.getAttribute('data-operation');
+                    const key = `${feature}_${operation}`;
+                    
+                    if (key in featureSequences) {
+                        featureSequences[key]++;
+                    } else {
+                        featureSequences[key] = 0;
+                    }
+                    
+                    row.setAttribute('data-sequence', featureSequences[key]);
+                });
+                
+                // 然后加载保存的选择
+                data.selections.forEach(selection => {
+                    rows.forEach(row => {
+                        const feature = row.getAttribute('data-feature');
+                        const operation = row.getAttribute('data-operation');
+                        const sequence = parseInt(row.getAttribute('data-sequence'));
+                        const rowId = row.getAttribute('data-row-id');
+                        
+                        if (feature === selection.feature_name && 
+                            operation === selection.operation && 
+                            sequence === selection.sequence) {
+                            // 恢复Machine选择
+                            if (selection.machine) {
+                                const machines = selection.machine.split(',');
+                                machines.forEach(machine => {
+                                    if (operation === 'milling') {
+                                        // milling有两组radio，需要检查每组
+                                        for (let i = 0; i < 2; i++) {
+                                            const machineInput = document.querySelector(`input[name="machine_${rowId}_group${i}"][value="${machine}"]`);
+                                            if (machineInput) machineInput.checked = true;
+                                        }
+                                    } else {
+                                        // drilling和centre drilling使用checkbox
+                                        const machineInput = document.querySelector(`input[name="machine_${rowId}"][value="${machine}"]`);
+                                        if (machineInput) machineInput.checked = true;
+                                    }
+                                });
+                            }
+                            
+                            // 恢复Tool选择
+                            if (selection.tool) {
+                                const tools = selection.tool.split(',');
+                                tools.forEach(tool => {
+                                    const toolInput = document.querySelector(`input[name="tool_${rowId}"][value="${tool}"]`);
+                                    if (toolInput) toolInput.checked = true;
+                                });
+                            }
+                        }
+                    });
+                });
+            }
+        })
+        .catch(error => {
+            console.log('No saved selections found');
+        });
+}
+
+// 加载已保存的选择
+function loadSavedSelections() {
+    fetch(`/api/get-process-selections/?image_id={{ processed_image.id }}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.selections && data.selections.length > 0) {
+                // 为每个特征的不同行分配sequence号
+                const featureSequences = {};
+                const rows = document.querySelectorAll('tbody tr[data-feature]');
+                
+                // 首先为每行分配sequence号
+                rows.forEach(row => {
+                    const feature = row.getAttribute('data-feature');
+                    const operation = row.getAttribute('data-operation');
+                    const key = `${feature}_${operation}`;
+                    
+                    if (key in featureSequences) {
+                        featureSequences[key]++;
+                    } else {
+                        featureSequences[key] = 0;
+                    }
+                    
+                    row.setAttribute('data-sequence', featureSequences[key]);
+                });
+                
+                // 然后加载保存的选择
+                data.selections.forEach(selection => {
+                    rows.forEach(row => {
+                        const feature = row.getAttribute('data-feature');
+                        const operation = row.getAttribute('data-operation');
+                        const sequence = parseInt(row.getAttribute('data-sequence'));
+                        const rowId = row.getAttribute('data-row-id');
+                        
+                        if (feature === selection.feature_name && 
+                            operation === selection.operation && 
+                            sequence === selection.sequence) {
+                            // 恢复Machine选择
+                            if (selection.machine) {
+                                const machines = selection.machine.split(',');
+                                machines.forEach(machine => {
+                                    const machineInput = document.querySelector(`input[name="machine_${rowId}"][value="${machine}"]`);
+                                    if (machineInput) machineInput.checked = true;
+                                });
+                            }
+                            
+                            // 恢复Tool选择
+                            if (selection.tool) {
+                                const tools = selection.tool.split(',');
+                                tools.forEach(tool => {
+                                    const toolInput = document.querySelector(`input[name="tool_${rowId}"][value="${tool}"]`);
+                                    if (toolInput) toolInput.checked = true;
+                                });
+                            }
+                        }
+                    });
+                });
+                
+                // 如果有保存的选择，自动切换到查看模式
+                switchToViewMode();
+            }
+        })
+        .catch(error => {
+            console.log('No saved selections found');
+        });
+}
+
+// 获取Cookie
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+}
+
 function copyTable() {
     const table = document.querySelector('.table-bordered');
     if (!table) {
@@ -172,13 +667,62 @@ function copyTable() {
         return;
     }
     
-    let tableText = 'Feature\tOperation\tPrior operations\n';
+    let tableText = 'Feature\tOperation\tPrior operations\tMachine\tTool\n';
     const rows = table.querySelectorAll('tbody tr');
     
     rows.forEach(row => {
         const cells = row.querySelectorAll('td');
-        if (cells.length >= 3) {
-            tableText += `${cells[0].innerText.trim()}\t${cells[1].innerText.trim()}\t${cells[2].innerText.trim()}\n`;
+        if (cells.length >= 5) {
+            // 获取每个单元格的文本内容
+            const feature = cells[0].innerText.trim();
+            const operation = cells[1].innerText.trim();
+            const priorOps = cells[2].innerText.trim();
+            
+            // 处理Machine列 - 可能是选择器或纯文本
+            let machine = '';
+            const machineContainer = cells[3].querySelector('.machine-selector');
+            if (machineContainer) {
+                // 如果是选择器模式，获取选中的值
+                const operationType = row.getAttribute('data-operation');
+                if (operationType === 'milling') {
+                    // milling有两组radio
+                    const rowId = row.getAttribute('data-row-id');
+                    let selectedMachines = [];
+                    // 检查两组radio
+                    for (let i = 0; i < 2; i++) {
+                        const selectedRadio = machineContainer.querySelector(`input[name="machine_${rowId}_group${i}"]:checked`);
+                        if (selectedRadio) {
+                            selectedMachines.push(selectedRadio.value);
+                        }
+                    }
+                    machine = selectedMachines.join(',');
+                } else {
+                    // drilling和centre drilling使用checkbox
+                    const machineInputs = machineContainer.querySelectorAll('input:checked');
+                    if (machineInputs.length > 0) {
+                        machine = Array.from(machineInputs).map(input => input.value).join(',');
+                    }
+                }
+            } else {
+                // 如果是查看模式，直接获取文本
+                machine = cells[3].innerText.trim();
+            }
+            
+            // 处理Tool列 - 可能是选择器或纯文本
+            let tool = '';
+            const toolContainer = cells[4].querySelector('.tool-selector');
+            if (toolContainer) {
+                // 如果是选择器模式，获取选中的值
+                const toolInputs = toolContainer.querySelectorAll('input:checked');
+                if (toolInputs.length > 0) {
+                    tool = Array.from(toolInputs).map(input => input.value).join(',');
+                }
+            } else {
+                // 如果是查看模式，直接获取文本
+                tool = cells[4].innerText.trim();
+            }
+            
+            tableText += `${feature}\t${operation}\t${priorOps}\t${machine}\t${tool}\n`;
         }
     });
     

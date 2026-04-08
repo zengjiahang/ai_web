@@ -150,3 +150,76 @@ class RAGImageFeature(models.Model):
             self.shoulder_positions or 
             self.step_positions
         )
+
+
+class ProcessSelection(models.Model):
+    """工艺选择记录 - 存储每行特征的Machine和Tool选择"""
+    processed_image = models.ForeignKey(
+        ProcessedImage,
+        on_delete=models.CASCADE,
+        related_name='process_selections',
+        verbose_name='处理的图片'
+    )
+    feature_name = models.CharField(
+        '特征名称',
+        max_length=20,
+        help_text='如：F1, F2, F3...'
+    )
+    operation = models.CharField(
+        '工序',
+        max_length=50,
+        choices=[
+            ('milling', '铣削'),
+            ('drilling', '钻孔'),
+            ('centre drilling', '中心钻'),
+        ]
+    )
+    prior_operations = models.CharField(
+        '前置工序',
+        max_length=200,
+        blank=True,
+        help_text='如：none, centre drilling, milling等'
+    )
+    
+    # 序号 - 用于区分同一特征的不同行
+    sequence = models.IntegerField(
+        '序号',
+        default=0,
+        help_text='同一特征的不同行的序号，从0开始'
+    )
+    
+    # Machine选择
+    machine = models.CharField(
+        '机器',
+        max_length=50,
+        blank=True,
+        help_text='选中的机器，如：m1, m2, m3, m4, m5'
+    )
+    
+    # Tool选择
+    tool = models.CharField(
+        '刀具',
+        max_length=200,
+        blank=True,
+        help_text='选中的刀具，多个用逗号分隔，如：t1,t2,t3'
+    )
+    
+    # 特殊标记
+    is_chamfer_second = models.BooleanField(
+        '是否为倒角第二工序',
+        default=False,
+        help_text='如果是倒角的第二个milling工序，Tool固定为t11'
+    )
+    
+    # 创建和更新时间
+    created_at = models.DateTimeField('创建时间', auto_now_add=True)
+    updated_at = models.DateTimeField('更新时间', auto_now=True)
+    
+    class Meta:
+        verbose_name = '工艺选择'
+        verbose_name_plural = '工艺选择'
+        ordering = ['feature_name', 'sequence', 'operation']
+        unique_together = [['processed_image', 'feature_name', 'sequence', 'operation']]
+    
+    def __str__(self):
+        return f"{self.feature_name}[{self.sequence}] - {self.operation}"

@@ -334,7 +334,7 @@ def format_features_to_table(features):
     for i in range(chamfer_count):
         feature_name = f'F{feature_counter}'
         table_rows.append([feature_name, 'milling', 'none'])
-        table_rows.append([feature_name, 'milling', 'chamfer'])  # 第二行添加chamfer标记
+        table_rows.append([feature_name, 'milling', 'none'])  # 第二行也是none，通过后台chamferFeatures列表识别
         feature_counter += 1
     
     shoulder_count = features.get('shoulder', 0)
@@ -406,15 +406,39 @@ def result_view(request, image_id):
             # 格式化为表格
             table_data = format_features_to_table(features)
             print(f"Generated table data with {len(table_data)} rows")
+            
+            # 生成倒角特征列表（用于前端识别）
+            chamfer_features = []
+            feature_counter = 1
+            slot_count = features.get('slot', 0)
+            for i in range(slot_count):
+                feature_counter += 1
+            hole_count = features.get('hole', 0)
+            for i in range(hole_count):
+                feature_counter += 1
+            chamfer_count = features.get('chamfer', 0)
+            for i in range(chamfer_count):
+                chamfer_features.append(f'F{feature_counter}')
+                feature_counter += 1
+            shoulder_count = features.get('shoulder', 0)
+            for i in range(shoulder_count):
+                feature_counter += 1
+            step_count = features.get('step', 0)
+            for i in range(step_count):
+                feature_counter += 1
         except Exception as e:
             print(f"Error extracting features for table: {e}")
             print(f"Result text: {processed_image.result[:200] if processed_image.result else 'None'}")
+            table_data = []
+            chamfer_features = []
     
     print(f"Final table_data: {table_data}")
+    print(f"Chamfer features: {chamfer_features}")
     
     return render(request, 'imageprocessor/result.html', {
         'processed_image': processed_image,
-        'table_data': table_data
+        'table_data': table_data,
+        'chamfer_features': chamfer_features
     })
 
 

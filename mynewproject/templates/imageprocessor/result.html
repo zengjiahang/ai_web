@@ -184,8 +184,8 @@
 const MACHINE_TOOL_CONFIG = {
     'milling': {
         machines: [
-            { group: 1, options: ['m1', 'm2'] },
-            { group: 2, options: ['m3', 'm4'] }
+            { label: '机器1', machines: ['m1,m2'] },
+            { label: '机器2', machines: ['m3,m4'] }
         ],
         tools: ['t1', 't2', 't3', 't4', 't5', 't6', 't15']
     },
@@ -195,12 +195,15 @@ const MACHINE_TOOL_CONFIG = {
     },
     'centre drilling': {
         machines: ['m1', 'm2', 'm3', 'm4', 'm5'],
-        tools: ['t10']  // 固定
+        tools: ['t10']
     }
 };
 
 // 当前是否为查看模式（保存后只显示结果）
 let isViewMode = false;
+
+// 倒角特征列表（从后台设置）
+const chamferFeatures = {{ chamfer_features|safe }};
 
 // 页面加载完成后初始化选择器
 document.addEventListener('DOMContentLoaded', function() {
@@ -220,10 +223,14 @@ function initializeSelectors() {
         // 存储行ID到data属性
         row.setAttribute('data-row-id', rowId);
         
-        const machineContainer = row.querySelector(`#machine_${feature}_${operation.replace(/\s/g, '_')}`);
-        const toolContainer = row.querySelector(`#tool_${feature}_${operation.replace(/\s/g, '_')}`);
+        // 直接查找容器，不替换空格
+        const machineContainer = row.querySelector('.machine-selector');
+        const toolContainer = row.querySelector('.tool-selector');
         
-        if (!machineContainer || !toolContainer) return;
+        if (!machineContainer || !toolContainer) {
+            console.log(`无法找到容器: feature=${feature}, operation=${operation}, rowId=${rowId}`);
+            return;
+        }
         
         // 更新容器ID
         machineContainer.id = `machine_${rowId}`;
@@ -245,23 +252,22 @@ function generateMachineSelector(container, operation, rowId) {
     let html = '';
     
     if (operation === 'milling') {
-        // milling使用两组radio，每组只能选一个
-        config.machines.forEach((group, groupIndex) => {
-            html += '<div class="machine-group mb-2">';
-            html += `<small class="text-muted d-block mb-1">选项 ${groupIndex + 1}:</small>`;
-            group.options.forEach(machine => {
+        // milling使用radio组，两个选项二选一
+        html += '<div class="machine-group">';
+        config.machines.forEach((option, optionIndex) => {
+            option.machines.forEach(machine => {
                 html += `
                     <label class="me-2">
                         <input type="radio" 
-                               name="machine_${rowId}_group${groupIndex}" 
-                               value="${machine}" 
+                               name="machine_${rowId}" 
+                               value="${machine}"
                                onchange="handleMachineChange('${rowId}', '${machine}')">
                         ${machine}
                     </label>
                 `;
             });
-            html += '</div>';
         });
+        html += '</div>';
     } else if (operation === 'centre drilling') {
         // centre drilling使用checkbox，可以多选
         html += '<div class="machine-group">';
@@ -308,11 +314,29 @@ function generateToolSelector(container, operation, rowId) {
     const isChamferSecond = checkIsChamferSecond(rowId, operation);
     
     if (isChamferSecond && operation === 'milling') {
-        // 倒角第二工序，Tool固定为t11
-        html = '<span class="badge bg-info">t11 (固定)</span>';
+        // 倒角第二工序，Tool固定为t11，使用checkbox
+        html = `
+            <label class="me-2">
+                <input type="checkbox" 
+                       name="tool_${rowId}" 
+                       value="t11"
+                       checked
+                       disabled>
+                t11
+            </label>
+        `;
     } else if (operation === 'centre drilling') {
-        // centre drilling固定t10
-        html = '<span class="badge bg-info">t10 (固定)</span>';
+        // centre drilling固定t10，使用checkbox
+        html = `
+            <label class="me-2">
+                <input type="checkbox" 
+                       name="tool_${rowId}" 
+                       value="t10"
+                       checked
+                       disabled>
+                t10
+            </label>
+        `;
     } else {
         // 其他情况，显示Tool选择
         config.tools.forEach(tool => {
@@ -335,21 +359,19 @@ function generateToolSelector(container, operation, rowId) {
 function checkIsChamferSecond(rowId, operation) {
     if (operation !== 'milling') return false;
     
-    // 倒角特征有两行milling，第二行的特征名相同
+    // 从后台获取的特征名
     const rows = document.querySelectorAll('tbody tr[data-feature]');
     const [feature] = rowId.split('_');
     const featureRows = Array.from(rows).filter(r => r.getAttribute('data-feature') === feature);
     
-    // 找到所有倒角相关的行
-    const chamferRows = featureRows.filter(r => {
-        const priorOps = r.children[2].textContent;
-        return priorOps.toLowerCase().includes('chamfer');
-    });
+    // 检查是否为倒角特征（从后台chamferFeatures列表中查找）
+    const isChamferFeature = chamferFeatures.includes(feature);
     
     // 如果不是倒角特征，返回false
-    if (chamferRows.length === 0) return false;
+    if (!isChamferFeature) return false;
     
-    // 找到当前行在倒角行中的索引
+    // 找到当前行在倒角特征行中的索引
+    const chamferRows = featureRows.filter(r => chamferFeatures.includes(r.getAttribute('data-feature')));
     const currentRow = chamferRows.find(r => r.getAttribute('data-row-id') === rowId);
     const currentIndex = chamferRows.indexOf(currentRow);
     
@@ -392,12 +414,10 @@ function saveProcessSelections() {
         // 获取选中的Machine
         let machines = [];
         if (operation === 'milling') {
-            // milling有两组radio，需要分别获取
-            for (let i = 0; i < 2; i++) {
-                const selectedRadio = document.querySelector(`input[name="machine_${rowId}_group${i}"]:checked`);
-                if (selectedRadio) {
-                    machines.push(selectedRadio.value);
-                }
+            // milling使用radio选择器
+            const selectedRadio = document.querySelector(`input[name="machine_${rowId}"]:checked`);
+            if (selectedRadio) {
+                machines = [selectedRadio.value];
             }
         } else {
             // drilling和centre drilling使用checkbox
@@ -556,11 +576,9 @@ function restoreSelectionsManually() {
                                 const machines = selection.machine.split(',');
                                 machines.forEach(machine => {
                                     if (operation === 'milling') {
-                                        // milling有两组radio，需要检查每组
-                                        for (let i = 0; i < 2; i++) {
-                                            const machineInput = document.querySelector(`input[name="machine_${rowId}_group${i}"][value="${machine}"]`);
-                                            if (machineInput) machineInput.checked = true;
-                                        }
+                                        // milling使用radio选择器
+                                        const machineInput = document.querySelector(`input[name="machine_${rowId}"][value="${machine}"]`);
+                                        if (machineInput) machineInput.checked = true;
                                     } else {
                                         // drilling和centre drilling使用checkbox
                                         const machineInput = document.querySelector(`input[name="machine_${rowId}"][value="${machine}"]`);
@@ -685,17 +703,11 @@ function copyTable() {
                 // 如果是选择器模式，获取选中的值
                 const operationType = row.getAttribute('data-operation');
                 if (operationType === 'milling') {
-                    // milling有两组radio
-                    const rowId = row.getAttribute('data-row-id');
-                    let selectedMachines = [];
-                    // 检查两组radio
-                    for (let i = 0; i < 2; i++) {
-                        const selectedRadio = machineContainer.querySelector(`input[name="machine_${rowId}_group${i}"]:checked`);
-                        if (selectedRadio) {
-                            selectedMachines.push(selectedRadio.value);
-                        }
+                    // milling使用radio选择器
+                    const selectedRadio = machineContainer.querySelector(`input[name="machine_${rowId}"]:checked`);
+                    if (selectedRadio) {
+                        machine = selectedRadio.value;
                     }
-                    machine = selectedMachines.join(',');
                 } else {
                     // drilling和centre drilling使用checkbox
                     const machineInputs = machineContainer.querySelectorAll('input:checked');

@@ -17,7 +17,7 @@ with open('d:/python/ai部署/图片/微信图片_20251123111536_70_19.jpg', 'rb
 
 # 创建上传文件
 uploaded_file = SimpleUploadedFile(
-    name='test_final_fix.jpg',
+    name='test_radio_fixes.jpg',
     content=image_data,
     content_type='image/jpeg'
 )
@@ -36,13 +36,13 @@ if latest_image:
     
     # 测试保存工艺选择API - 包含所有情况
     test_selections = [
-        # 槽特征（F1）- 测试milling两个选项选择
+        # 槽特征（F1）- 测试milling两个机器选择
         {
             'feature_name': 'F1',
             'operation': 'milling',
             'prior_operations': 'none',
             'sequence': 0,
-            'machine': 'm1',  # 从选项1选择
+            'machine': 'm1,m2',  # 选择机器1
             'tool': 't1,t2',
             'is_chamfer_second': False
         },
@@ -51,7 +51,7 @@ if latest_image:
             'operation': 'milling',
             'prior_operations': 'none',
             'sequence': 1,
-            'machine': 'm3',  # 从选项2选择
+            'machine': 'm3,m4',  # 选择机器2
             'tool': 't3',
             'is_chamfer_second': False
         },
@@ -61,16 +61,16 @@ if latest_image:
             'operation': 'milling',
             'prior_operations': 'none',
             'sequence': 0,
-            'machine': 'm1',
+            'machine': 'm1,m2',
             'tool': 't1',
             'is_chamfer_second': False
         },
         {
             'feature_name': 'F2',
             'operation': 'milling',
-            'prior_operations': 'none',  # 保持为none
+            'prior_operations': 'none',
             'sequence': 1,
-            'machine': 'm2',
+            'machine': 'm3,m4',
             'tool': 't11',  # 倒角第二工序固定t11
             'is_chamfer_second': True
         },
@@ -98,7 +98,7 @@ if latest_image:
             'operation': 'milling',
             'prior_operations': 'centre drilling, drilling, milling',
             'sequence': 0,
-            'machine': 'm1',
+            'machine': 'm1,m2',
             'tool': 't1',
             'is_chamfer_second': False
         }
@@ -127,10 +127,10 @@ if latest_image:
         print("\n7. 验证保存的数据:")
         print("-" * 70)
         
-        # 验证milling的两个选项选择
+        # 验证milling的两个机器选择
         f1_selections = [s for s in result['selections'] if s['feature_name'] == 'F1']
-        print(f"✓ F1 milling (选项1): machine={f1_selections[0]['machine']}, tool={f1_selections[0]['tool']}")
-        print(f"✓ F1 milling (选项2): machine={f1_selections[1]['machine']}, tool={f1_selections[1]['tool']}")
+        print(f"✓ F1 milling (第一行): machine={f1_selections[0]['machine']}, tool={f1_selections[0]['tool']}")
+        print(f"✓ F1 milling (第二行): machine={f1_selections[1]['machine']}, tool={f1_selections[1]['tool']}")
         
         # 验证倒角第二工序
         chamfer_selections = [s for s in result['selections'] if s['feature_name'] == 'F2']
@@ -157,9 +157,9 @@ if latest_image:
         print("\n✅ 所有验证通过！")
         
         print("\n8. 修复总结:")
-        print("   ✓ 倒角第二工序: prior_operations保持'none'，Tool固定为t11（通过后台chamferFeatures列表识别）")
-        print("   ✓ Centre drilling: 显示m1-m5选项（可多选），Tool固定为t10")
-        print("   ✓ Milling: 显示两个选项（选项1: m1/m2, 选项2: m3/m4），每个选项二选一")
+        print("   ✓ 倒角第二工序: prior_operations保持'none'，Tool显示为checkbox(t11)并禁用")
+        print("   ✓ Centre drilling: 显示m1-m5选项（可多选），Tool显示为checkbox(t10)并禁用")
+        print("   ✓ Milling: 显示radio组，两个选项(m1,m2 和 m3,m4)二选一")
         print("   ✓ 编辑模式: 可以正确切换回编辑模式并恢复选择")
         print("   ✓ 复制表格: 支持复制包含Machine和Tool的完整表格")
         

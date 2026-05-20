@@ -68,12 +68,20 @@
                             <!-- 格式化特征表格 -->
                             {% if table_data %}
                             <div class="card mb-3">
-                                <div class="card-header bg-success text-white">
+                                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
                                     <h6 class="mb-0"><i class="fas fa-table"></i> Feature Operations Table</h6>
+                                    <div>
+                                        <button type="button" class="btn btn-sm btn-light" id="editModeBtn" onclick="toggleEditMode()">
+                                            <i class="fas fa-edit"></i> 编辑
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-success d-none" id="saveModeBtn" onclick="saveTableEdits()">
+                                            <i class="fas fa-save"></i> 保存
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="card-body">
                                     <div class="table-responsive">
-                                        <table class="table table-bordered table-striped">
+                                        <table class="table table-bordered table-striped" id="featureTable">
                                             <thead>
                                                 <tr>
                                                     <th>Feature</th>
@@ -81,29 +89,30 @@
                                                     <th>Prior operations</th>
                                                     <th>Machine</th>
                                                     <th>Tool</th>
+                                                    <th class="d-none" id="actionHeader">操作</th>
                                                 </tr>
                                             </thead>
-                                            <tbody>
+                                            <tbody id="featureTableBody">
                                                 {% for row in table_data %}
-                                                <tr data-feature="{{ row.0 }}" data-operation="{{ row.1 }}">
-                                                    <td><strong>{{ row.0 }}</strong></td>
-                                                    <td>{{ row.1 }}</td>
-                                                    <td>{{ row.2 }}</td>
-                                                    <td>
-                                                        <div class="machine-selector" id="machine_{{ row.0 }}_{{ row.1 }}">
-                                                            <!-- Machine选择器将通过JS动态生成 -->
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <div class="tool-selector" id="tool_{{ row.0 }}_{{ row.1 }}">
-                                                            <!-- Tool选择器将通过JS动态生成 -->
-                                                        </div>
+                                                <tr data-feature="{{ row.0 }}" data-operation="{{ row.1 }}" data-row-id="{{ forloop.counter }}">
+                                                    <td class="feature-cell"><strong>{{ row.0 }}</strong></td>
+                                                    <td class="operation-cell">{{ row.1 }}</td>
+                                                    <td class="prior-cell">{{ row.2 }}</td>
+                                                    <td class="machine-cell">{{ row.3|default:"-" }}</td>
+                                                    <td class="tool-cell">{{ row.4|default:"-" }}</td>
+                                                    <td class="action-cell d-none">
+                                                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteRow(this)">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
                                                     </td>
                                                 </tr>
                                                 {% endfor %}
                                             </tbody>
                                         </table>
                                     </div>
+                                    <button type="button" class="btn btn-sm btn-primary d-none mt-2" id="addRowBtn" onclick="addNewRow()">
+                                        <i class="fas fa-plus"></i> 添加新行
+                                    </button>
                                 </div>
                             </div>
                             {% else %}
@@ -116,7 +125,45 @@
                                 </div>
                             </div>
                             {% endif %}
-                            
+
+                            <!-- 机器和刀具参考表 -->
+                            <div class="row mt-4">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-secondary text-white py-2">
+                                            <h6 class="mb-0"><i class="fas fa-cog"></i> 机器参考</h6>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <table class="table table-sm table-striped mb-0">
+                                                <thead><tr><th>代号</th><th>名称</th></tr></thead>
+                                                <tbody>
+                                                    {% for m in machine_refs %}
+                                                    <tr><td><strong>{{ m.0 }}</strong></td><td>{{ m.1 }}</td></tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-info text-white py-2">
+                                            <h6 class="mb-0"><i class="fas fa-tools"></i> 刀具参考</h6>
+                                        </div>
+                                        <div class="card-body p-0" style="max-height:300px;overflow-y:auto;">
+                                            <table class="table table-sm table-striped mb-0">
+                                                <thead><tr><th>代号</th><th>名称</th></tr></thead>
+                                                <tbody>
+                                                    {% for t in tool_refs %}
+                                                    <tr><td><strong>{{ t.0 }}</strong></td><td>{{ t.1 }}</td></tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="mt-4">
                                 <h6 class="mb-3">Quick Actions:</h6>
                                 <div class="d-flex gap-2 flex-wrap">
@@ -132,9 +179,6 @@
                                     <a href="{% url 'imageprocessor:rag_annotation' processed_image.id %}" class="btn btn-outline-warning btn-sm">
                                         <i class="fas fa-edit"></i> RAG标注
                                     </a>
-                                    <button class="btn btn-outline-success btn-sm" onclick="saveProcessSelections()">
-                                        <i class="fas fa-save"></i> 保存选择
-                                    </button>
                                 </div>
                             </div>
                             
@@ -180,495 +224,256 @@
 </div>
 
 <script>
-// Machine和Tool选项配置
-const MACHINE_TOOL_CONFIG = {
-    'milling': {
-        machines: [
-            { label: '机器1', machines: ['m1,m2'] },
-            { label: '机器2', machines: ['m3,m4'] }
-        ],
-        tools: ['t1', 't2', 't3', 't4', 't5', 't6', 't15']
-    },
-    'drilling': {
-        machines: ['m1', 'm2', 'm3', 'm4', 'm5'],
-        tools: ['t7', 't8', 't9', 't12', 't13', 't14', 't16', 't17']
-    },
-    'centre drilling': {
-        machines: ['m1', 'm2', 'm3', 'm4', 'm5'],
-        tools: ['t10']
-    }
-};
+// 当前是否为编辑模式
+let isEditMode = false;
 
-// 当前是否为查看模式（保存后只显示结果）
-let isViewMode = false;
-
-// 倒角特征列表（从后台设置）
-const chamferFeatures = {{ chamfer_features|safe }};
-
-// 页面加载完成后初始化选择器
+// 页面加载完成后
 document.addEventListener('DOMContentLoaded', function() {
-    initializeSelectors();
-    loadSavedSelections();
+    // 默认为查看模式
+    isEditMode = false;
 });
 
-// 初始化选择器
-function initializeSelectors() {
-    const rows = document.querySelectorAll('tbody tr[data-feature]');
+// 切换编辑模式
+function toggleEditMode() {
+    isEditMode = !isEditMode;
     
-    rows.forEach((row, index) => {
-        const feature = row.getAttribute('data-feature');
-        const operation = row.getAttribute('data-operation');
-        const rowId = `${feature}_${index}`; // 为每行创建唯一ID
-        
-        // 存储行ID到data属性
-        row.setAttribute('data-row-id', rowId);
-        
-        // 直接查找容器，不替换空格
-        const machineContainer = row.querySelector('.machine-selector');
-        const toolContainer = row.querySelector('.tool-selector');
-        
-        if (!machineContainer || !toolContainer) {
-            console.log(`无法找到容器: feature=${feature}, operation=${operation}, rowId=${rowId}`);
-            return;
-        }
-        
-        // 更新容器ID
-        machineContainer.id = `machine_${rowId}`;
-        toolContainer.id = `tool_${rowId}`;
-        
-        // 生成Machine选择器
-        generateMachineSelector(machineContainer, operation, rowId);
-        
-        // 生成Tool选择器
-        generateToolSelector(toolContainer, operation, rowId);
-    });
-}
-
-// 生成Machine选择器
-function generateMachineSelector(container, operation, rowId) {
-    const config = MACHINE_TOOL_CONFIG[operation];
-    if (!config) return;
+    const editBtn = document.getElementById('editModeBtn');
+    const saveBtn = document.getElementById('saveModeBtn');
+    const actionHeader = document.getElementById('actionHeader');
+    const addRowBtn = document.getElementById('addRowBtn');
     
-    let html = '';
-    
-    if (operation === 'milling') {
-        // milling使用radio组，两个选项二选一
-        html += '<div class="machine-group">';
-        config.machines.forEach((option, optionIndex) => {
-            option.machines.forEach(machine => {
-                html += `
-                    <label class="me-2">
-                        <input type="radio" 
-                               name="machine_${rowId}" 
-                               value="${machine}"
-                               onchange="handleMachineChange('${rowId}', '${machine}')">
-                        ${machine}
-                    </label>
-                `;
-            });
-        });
-        html += '</div>';
-    } else if (operation === 'centre drilling') {
-        // centre drilling使用checkbox，可以多选
-        html += '<div class="machine-group">';
-        config.machines.forEach(machine => {
-            html += `
-                <label class="me-2">
-                    <input type="checkbox" 
-                           name="machine_${rowId}" 
-                           value="${machine}"
-                           onchange="handleMachineChange('${rowId}', '${machine}')">
-                    ${machine}
-                </label>
-            `;
-        });
-        html += '</div>';
+    if (isEditMode) {
+        // 进入编辑模式
+        editBtn.classList.add('d-none');
+        saveBtn.classList.remove('d-none');
+        actionHeader.classList.remove('d-none');
+        addRowBtn.classList.remove('d-none');
+        
+        // 将所有单元格转换为可编辑
+        makeCellsEditable();
     } else {
-        // drilling使用checkbox，可以多选
-        html += '<div class="machine-group">';
-        config.machines.forEach(machine => {
-            html += `
-                <label class="me-2">
-                    <input type="checkbox" 
-                           name="machine_${rowId}" 
-                           value="${machine}"
-                           onchange="handleMachineChange('${rowId}', '${machine}')">
-                    ${machine}
-                </label>
-            `;
-        });
-        html += '</div>';
+        // 退出编辑模式，恢复查看模式
+        editBtn.classList.remove('d-none');
+        saveBtn.classList.add('d-none');
+        actionHeader.classList.add('d-none');
+        addRowBtn.classList.add('d-none');
+        
+        // 恢复查看模式
+        restoreViewMode();
     }
-    
-    container.innerHTML = html;
 }
 
-// 生成Tool选择器
-function generateToolSelector(container, operation, rowId) {
-    const config = MACHINE_TOOL_CONFIG[operation];
-    if (!config) return;
-    
-    let html = '';
-    
-    // 检查是否为倒角的第二个milling
-    const isChamferSecond = checkIsChamferSecond(rowId, operation);
-    
-    if (isChamferSecond && operation === 'milling') {
-        // 倒角第二工序，Tool固定为t11，使用checkbox
-        html = `
-            <label class="me-2">
-                <input type="checkbox" 
-                       name="tool_${rowId}" 
-                       value="t11"
-                       checked
-                       disabled>
-                t11
-            </label>
-        `;
-    } else if (operation === 'centre drilling') {
-        // centre drilling固定t10，使用checkbox
-        html = `
-            <label class="me-2">
-                <input type="checkbox" 
-                       name="tool_${rowId}" 
-                       value="t10"
-                       checked
-                       disabled>
-                t10
-            </label>
-        `;
-    } else {
-        // 其他情况，显示Tool选择
-        config.tools.forEach(tool => {
-            html += `
-                <label class="me-2">
-                    <input type="checkbox" 
-                           name="tool_${rowId}" 
-                           value="${tool}"
-                           onchange="handleToolChange('${rowId}', '${tool}')">
-                    ${tool}
-                </label>
-            `;
-        });
-    }
-    
-    container.innerHTML = html;
-}
-
-// 检查是否为倒角的第二个milling
-function checkIsChamferSecond(rowId, operation) {
-    if (operation !== 'milling') return false;
-    
-    // 从后台获取的特征名
-    const rows = document.querySelectorAll('tbody tr[data-feature]');
-    const [feature] = rowId.split('_');
-    const featureRows = Array.from(rows).filter(r => r.getAttribute('data-feature') === feature);
-    
-    // 检查是否为倒角特征（从后台chamferFeatures列表中查找）
-    const isChamferFeature = chamferFeatures.includes(feature);
-    
-    // 如果不是倒角特征，返回false
-    if (!isChamferFeature) return false;
-    
-    // 找到当前行在倒角特征行中的索引
-    const chamferRows = featureRows.filter(r => chamferFeatures.includes(r.getAttribute('data-feature')));
-    const currentRow = chamferRows.find(r => r.getAttribute('data-row-id') === rowId);
-    const currentIndex = chamferRows.indexOf(currentRow);
-    
-    // 如果是倒角且不是第一行，返回true
-    return currentIndex > 0;
-}
-
-// 处理Machine选择变化
-function handleMachineChange(feature, machine) {
-    console.log(`Machine changed for ${feature}: ${machine}`);
-}
-
-// 处理Tool选择变化
-function handleToolChange(feature, tool) {
-    console.log(`Tool changed for ${feature}: ${tool}`);
-}
-
-// 保存所有选择
-function saveProcessSelections() {
-    const selections = [];
-    const rows = document.querySelectorAll('tbody tr[data-feature]');
-    
-    // 为每个特征的不同行分配sequence号
-    const featureSequences = {};
+// 使单元格可编辑
+function makeCellsEditable() {
+    const rows = document.querySelectorAll('#featureTableBody tr');
     
     rows.forEach(row => {
-        const feature = row.getAttribute('data-feature');
-        const operation = row.getAttribute('data-operation');
-        const rowId = row.getAttribute('data-row-id');
-        const priorOps = row.children[2].textContent;
+        const featureCell = row.querySelector('.feature-cell');
+        const operationCell = row.querySelector('.operation-cell');
+        const priorCell = row.querySelector('.prior-cell');
+        const machineCell = row.querySelector('.machine-cell');
+        const toolCell = row.querySelector('.tool-cell');
+        const actionCell = row.querySelector('.action-cell');
         
-        // 为每个特征的不同行分配sequence号
-        const key = `${feature}_${operation}`;
-        if (key in featureSequences) {
-            featureSequences[key]++;
-        } else {
-            featureSequences[key] = 0;
+        // Feature输入框
+        if (featureCell) {
+            const featureValue = featureCell.textContent.trim();
+            featureCell.innerHTML = `<input type="text" class="form-control form-control-sm" value="${featureValue}">`;
         }
         
-        // 获取选中的Machine
-        let machines = [];
-        if (operation === 'milling') {
-            // milling使用radio选择器
-            const selectedRadio = document.querySelector(`input[name="machine_${rowId}"]:checked`);
-            if (selectedRadio) {
-                machines = [selectedRadio.value];
+        // Operation下拉选择
+        if (operationCell) {
+            const operationValue = operationCell.textContent.trim();
+            operationCell.innerHTML = `
+                <select class="form-select form-select-sm">
+                    <option value="milling" ${operationValue === 'milling' ? 'selected' : ''}>milling</option>
+                    <option value="drilling" ${operationValue === 'drilling' ? 'selected' : ''}>drilling</option>
+                    <option value="centre drilling" ${operationValue === 'centre drilling' ? 'selected' : ''}>centre drilling</option>
+                </select>
+            `;
+        }
+        
+        // Prior operations输入框
+        if (priorCell) {
+            const priorValue = priorCell.textContent.trim();
+            priorCell.innerHTML = `<input type="text" class="form-control form-control-sm" value="${priorValue}">`;
+        }
+        
+        // Machine输入框
+        if (machineCell) {
+            const machineValue = machineCell.textContent.trim();
+            machineCell.innerHTML = `<input type="text" class="form-control form-control-sm" value="${machineValue}">`;
+        }
+        
+        // Tool输入框
+        if (toolCell) {
+            const toolValue = toolCell.textContent.trim();
+            toolCell.innerHTML = `<input type="text" class="form-control form-control-sm" value="${toolValue}">`;
+        }
+        
+        // 显示删除按钮
+        if (actionCell) {
+            actionCell.classList.remove('d-none');
+        }
+    });
+}
+
+// 恢复查看模式
+function restoreViewMode() {
+    const rows = document.querySelectorAll('#featureTableBody tr');
+    
+    rows.forEach(row => {
+        const featureCell = row.querySelector('.feature-cell');
+        const operationCell = row.querySelector('.operation-cell');
+        const priorCell = row.querySelector('.prior-cell');
+        const machineCell = row.querySelector('.machine-cell');
+        const toolCell = row.querySelector('.tool-cell');
+        const actionCell = row.querySelector('.action-cell');
+        
+        // Feature
+        if (featureCell) {
+            const input = featureCell.querySelector('input');
+            if (input) {
+                featureCell.innerHTML = `<strong>${input.value}</strong>`;
             }
-        } else {
-            // drilling和centre drilling使用checkbox
-            const machineInputs = document.querySelectorAll(`input[name="machine_${rowId}"]:checked`);
-            machines = Array.from(machineInputs).map(input => input.value);
         }
         
-        // 获取选中的Tool
-        const toolInputs = document.querySelectorAll(`input[name="tool_${rowId}"]:checked`);
-        const tools = Array.from(toolInputs).map(input => input.value);
+        // Operation
+        if (operationCell) {
+            const select = operationCell.querySelector('select');
+            if (select) {
+                operationCell.textContent = select.value;
+            }
+        }
         
-        // 检查是否为倒角第二工序
-        const isChamferSecond = checkIsChamferSecond(rowId, operation);
+        // Prior operations
+        if (priorCell) {
+            const input = priorCell.querySelector('input');
+            if (input) {
+                priorCell.textContent = input.value;
+            }
+        }
         
-        selections.push({
-            feature_name: feature,
-            operation: operation,
-            prior_operations: priorOps,
-            sequence: featureSequences[key],
-            machine: machines.join(','),
-            tool: tools.join(','),
-            is_chamfer_second: isChamferSecond
-        });
+        // Machine
+        if (machineCell) {
+            const input = machineCell.querySelector('input');
+            if (input) {
+                machineCell.textContent = input.value || '-';
+            }
+        }
+        
+        // Tool
+        if (toolCell) {
+            const input = toolCell.querySelector('input');
+            if (input) {
+                toolCell.textContent = input.value || '-';
+            }
+        }
+        
+        // 隐藏删除按钮
+        if (actionCell) {
+            actionCell.classList.add('d-none');
+        }
+    });
+}
+
+// 添加新行
+function addNewRow() {
+    const tbody = document.getElementById('featureTableBody');
+    const rowCount = tbody.children.length;
+    const newRow = document.createElement('tr');
+    newRow.innerHTML = `
+        <td class="feature-cell">
+            <input type="text" class="form-control form-control-sm" value="F${rowCount + 1}">
+        </td>
+        <td class="operation-cell">
+            <select class="form-select form-select-sm">
+                <option value="milling">milling</option>
+                <option value="drilling">drilling</option>
+                <option value="centre drilling">centre drilling</option>
+            </select>
+        </td>
+        <td class="prior-cell">
+            <input type="text" class="form-control form-control-sm" value="none">
+        </td>
+        <td class="machine-cell">
+            <input type="text" class="form-control form-control-sm" placeholder="m1m2">
+        </td>
+        <td class="tool-cell">
+            <input type="text" class="form-control form-control-sm" placeholder="t1">
+        </td>
+        <td class="action-cell">
+            <button type="button" class="btn btn-sm btn-danger" onclick="deleteRow(this)">
+                <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    `;
+    tbody.appendChild(newRow);
+}
+
+// 删除行
+function deleteRow(button) {
+    const tbody = document.getElementById('featureTableBody');
+    if (tbody.children.length > 1) {
+        const row = button.closest('tr');
+        tbody.removeChild(row);
+    } else {
+        alert('至少保留一行！');
+    }
+}
+
+// 保存表格编辑
+function saveTableEdits() {
+    const rows = document.querySelectorAll('#featureTableBody tr');
+    const tableData = [];
+    
+    rows.forEach(row => {
+        const featureInput = row.querySelector('.feature-cell input');
+        const operationSelect = row.querySelector('.operation-cell select');
+        const priorInput = row.querySelector('.prior-cell input');
+        const machineInput = row.querySelector('.machine-cell input');
+        const toolInput = row.querySelector('.tool-cell input');
+        
+        const feature = featureInput ? featureInput.value : '';
+        const operation = operationSelect ? operationSelect.value : '';
+        const prior = priorInput ? priorInput.value : '';
+        const machine = machineInput ? machineInput.value : '';
+        const tool = toolInput ? toolInput.value : '';
+        
+        if (feature) {
+            tableData.push({
+                feature: feature,
+                operation: operation,
+                prior_operations: prior,
+                machine: machine,
+                tool: tool
+            });
+        }
     });
     
-    // 发送到后端
-    fetch('/api/save-process-selections/', {
+    // 保存到服务器
+    fetch(`/api/save-table-data/?image_id={{ processed_image.id }}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': getCookie('csrftoken')
         },
-        body: JSON.stringify({
-            image_id: {{ processed_image.id }},
-            selections: selections
-        })
+        body: JSON.stringify({ table_data: tableData })
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
             alert('保存成功！');
-            // 切换到查看模式
-            switchToViewMode();
+            // 退出编辑模式
+            toggleEditMode();
         } else {
-            alert('保存失败：' + data.error);
+            alert('保存失败：' + (data.error || '未知错误'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('保存失败，请重试');
+        alert('保存时出错，请重试');
     });
-}
-
-// 切换到查看模式
-function switchToViewMode() {
-    isViewMode = true;
-    const rows = document.querySelectorAll('tbody tr[data-feature]');
-    
-    rows.forEach(row => {
-        const rowId = row.getAttribute('data-row-id');
-        const machineContainer = row.querySelector(`#machine_${rowId}`);
-        const toolContainer = row.querySelector(`#tool_${rowId}`);
-        
-        if (machineContainer && toolContainer) {
-            // 获取选中的值
-            const machineInputs = document.querySelectorAll(`input[name="machine_${rowId}"]:checked`);
-            const machines = Array.from(machineInputs).map(input => input.value).join(',');
-            
-            const toolInputs = document.querySelectorAll(`input[name="tool_${rowId}"]:checked`);
-            const tools = Array.from(toolInputs).map(input => input.value).join(',');
-            
-            // 替换为纯文本显示
-            machineContainer.innerHTML = `<strong>${machines || '-'}</strong>`;
-            toolContainer.innerHTML = `<strong>${tools || '-'}</strong>`;
-        }
-    });
-    
-    // 更新按钮状态
-    const saveBtn = document.querySelector('button[onclick="saveProcessSelections()"]');
-    if (saveBtn) {
-        saveBtn.style.display = 'none';
-    }
-    
-    // 添加编辑按钮
-    const quickActions = document.querySelector('.d-flex.gap-2.flex-wrap');
-    if (quickActions && !document.querySelector('button[onclick="switchToEditMode()"]')) {
-        const editBtn = document.createElement('button');
-        editBtn.className = 'btn btn-outline-warning btn-sm';
-        editBtn.onclick = switchToEditMode;
-        editBtn.innerHTML = '<i class="fas fa-edit"></i> 编辑选择';
-        quickActions.appendChild(editBtn);
-    }
-}
-
-// 切换到编辑模式
-function switchToEditMode() {
-    isViewMode = false;
-    
-    // 重新初始化选择器
-    initializeSelectors();
-    
-    // 手动恢复保存的选择（不调用loadSavedSelections，因为它会自动切换到查看模式）
-    restoreSelectionsManually();
-    
-    // 更新按钮状态
-    const saveBtn = document.querySelector('button[onclick="saveProcessSelections()"]');
-    if (saveBtn) {
-        saveBtn.style.display = 'inline-block';
-    }
-    
-    // 移除编辑按钮
-    const editBtn = document.querySelector('button[onclick="switchToEditMode()"]');
-    if (editBtn) {
-        editBtn.remove();
-    }
-}
-
-// 手动恢复保存的选择
-function restoreSelectionsManually() {
-    fetch(`/api/get-process-selections/?image_id={{ processed_image.id }}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.selections && data.selections.length > 0) {
-                // 为每个特征的不同行分配sequence号
-                const featureSequences = {};
-                const rows = document.querySelectorAll('tbody tr[data-feature]');
-                
-                // 首先为每行分配sequence号
-                rows.forEach(row => {
-                    const feature = row.getAttribute('data-feature');
-                    const operation = row.getAttribute('data-operation');
-                    const key = `${feature}_${operation}`;
-                    
-                    if (key in featureSequences) {
-                        featureSequences[key]++;
-                    } else {
-                        featureSequences[key] = 0;
-                    }
-                    
-                    row.setAttribute('data-sequence', featureSequences[key]);
-                });
-                
-                // 然后加载保存的选择
-                data.selections.forEach(selection => {
-                    rows.forEach(row => {
-                        const feature = row.getAttribute('data-feature');
-                        const operation = row.getAttribute('data-operation');
-                        const sequence = parseInt(row.getAttribute('data-sequence'));
-                        const rowId = row.getAttribute('data-row-id');
-                        
-                        if (feature === selection.feature_name && 
-                            operation === selection.operation && 
-                            sequence === selection.sequence) {
-                            // 恢复Machine选择
-                            if (selection.machine) {
-                                const machines = selection.machine.split(',');
-                                machines.forEach(machine => {
-                                    if (operation === 'milling') {
-                                        // milling使用radio选择器
-                                        const machineInput = document.querySelector(`input[name="machine_${rowId}"][value="${machine}"]`);
-                                        if (machineInput) machineInput.checked = true;
-                                    } else {
-                                        // drilling和centre drilling使用checkbox
-                                        const machineInput = document.querySelector(`input[name="machine_${rowId}"][value="${machine}"]`);
-                                        if (machineInput) machineInput.checked = true;
-                                    }
-                                });
-                            }
-                            
-                            // 恢复Tool选择
-                            if (selection.tool) {
-                                const tools = selection.tool.split(',');
-                                tools.forEach(tool => {
-                                    const toolInput = document.querySelector(`input[name="tool_${rowId}"][value="${tool}"]`);
-                                    if (toolInput) toolInput.checked = true;
-                                });
-                            }
-                        }
-                    });
-                });
-            }
-        })
-        .catch(error => {
-            console.log('No saved selections found');
-        });
-}
-
-// 加载已保存的选择
-function loadSavedSelections() {
-    fetch(`/api/get-process-selections/?image_id={{ processed_image.id }}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.selections && data.selections.length > 0) {
-                // 为每个特征的不同行分配sequence号
-                const featureSequences = {};
-                const rows = document.querySelectorAll('tbody tr[data-feature]');
-                
-                // 首先为每行分配sequence号
-                rows.forEach(row => {
-                    const feature = row.getAttribute('data-feature');
-                    const operation = row.getAttribute('data-operation');
-                    const key = `${feature}_${operation}`;
-                    
-                    if (key in featureSequences) {
-                        featureSequences[key]++;
-                    } else {
-                        featureSequences[key] = 0;
-                    }
-                    
-                    row.setAttribute('data-sequence', featureSequences[key]);
-                });
-                
-                // 然后加载保存的选择
-                data.selections.forEach(selection => {
-                    rows.forEach(row => {
-                        const feature = row.getAttribute('data-feature');
-                        const operation = row.getAttribute('data-operation');
-                        const sequence = parseInt(row.getAttribute('data-sequence'));
-                        const rowId = row.getAttribute('data-row-id');
-                        
-                        if (feature === selection.feature_name && 
-                            operation === selection.operation && 
-                            sequence === selection.sequence) {
-                            // 恢复Machine选择
-                            if (selection.machine) {
-                                const machines = selection.machine.split(',');
-                                machines.forEach(machine => {
-                                    const machineInput = document.querySelector(`input[name="machine_${rowId}"][value="${machine}"]`);
-                                    if (machineInput) machineInput.checked = true;
-                                });
-                            }
-                            
-                            // 恢复Tool选择
-                            if (selection.tool) {
-                                const tools = selection.tool.split(',');
-                                tools.forEach(tool => {
-                                    const toolInput = document.querySelector(`input[name="tool_${rowId}"][value="${tool}"]`);
-                                    if (toolInput) toolInput.checked = true;
-                                });
-                            }
-                        }
-                    });
-                });
-                
-                // 如果有保存的选择，自动切换到查看模式
-                switchToViewMode();
-            }
-        })
-        .catch(error => {
-            console.log('No saved selections found');
-        });
 }
 
 // 获取Cookie
@@ -678,81 +483,26 @@ function getCookie(name) {
     if (parts.length === 2) return parts.pop().split(';').shift();
 }
 
+// 复制表格数据
 function copyTable() {
-    const table = document.querySelector('.table-bordered');
-    if (!table) {
-        alert('Table not found');
-        return;
-    }
-    
+    const rows = document.querySelectorAll('#featureTableBody tr');
     let tableText = 'Feature\tOperation\tPrior operations\tMachine\tTool\n';
-    const rows = table.querySelectorAll('tbody tr');
     
     rows.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        if (cells.length >= 5) {
-            // 获取每个单元格的文本内容
-            const feature = cells[0].innerText.trim();
-            const operation = cells[1].innerText.trim();
-            const priorOps = cells[2].innerText.trim();
-            
-            // 处理Machine列 - 可能是选择器或纯文本
-            let machine = '';
-            const machineContainer = cells[3].querySelector('.machine-selector');
-            if (machineContainer) {
-                // 如果是选择器模式，获取选中的值
-                const operationType = row.getAttribute('data-operation');
-                if (operationType === 'milling') {
-                    // milling使用radio选择器
-                    const selectedRadio = machineContainer.querySelector(`input[name="machine_${rowId}"]:checked`);
-                    if (selectedRadio) {
-                        machine = selectedRadio.value;
-                    }
-                } else {
-                    // drilling和centre drilling使用checkbox
-                    const machineInputs = machineContainer.querySelectorAll('input:checked');
-                    if (machineInputs.length > 0) {
-                        machine = Array.from(machineInputs).map(input => input.value).join(',');
-                    }
-                }
-            } else {
-                // 如果是查看模式，直接获取文本
-                machine = cells[3].innerText.trim();
-            }
-            
-            // 处理Tool列 - 可能是选择器或纯文本
-            let tool = '';
-            const toolContainer = cells[4].querySelector('.tool-selector');
-            if (toolContainer) {
-                // 如果是选择器模式，获取选中的值
-                const toolInputs = toolContainer.querySelectorAll('input:checked');
-                if (toolInputs.length > 0) {
-                    tool = Array.from(toolInputs).map(input => input.value).join(',');
-                }
-            } else {
-                // 如果是查看模式，直接获取文本
-                tool = cells[4].innerText.trim();
-            }
-            
-            tableText += `${feature}\t${operation}\t${priorOps}\t${machine}\t${tool}\n`;
-        }
+        const feature = row.querySelector('.feature-cell').textContent.trim();
+        const operation = row.querySelector('.operation-cell').textContent.trim();
+        const prior = row.querySelector('.prior-cell').textContent.trim();
+        const machine = row.querySelector('.machine-cell').textContent.trim();
+        const tool = row.querySelector('.tool-cell').textContent.trim();
+        
+        tableText += `${feature}\t${operation}\t${prior}\t${machine}\t${tool}\n`;
     });
     
-    navigator.clipboard.writeText(tableText).then(function() {
-        const btn = event.target.closest('button');
-        const originalHTML = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-        btn.classList.remove('btn-outline-primary');
-        btn.classList.add('btn-success');
-        
-        setTimeout(function() {
-            btn.innerHTML = originalHTML;
-            btn.classList.remove('btn-success');
-            btn.classList.add('btn-outline-primary');
-        }, 2000);
-    }).catch(function(err) {
-        console.error('Failed to copy: ', err);
-        alert('Copy failed, please copy manually');
+    navigator.clipboard.writeText(tableText).then(() => {
+        alert('表格数据已复制到剪贴板！');
+    }).catch(err => {
+        console.error('复制失败:', err);
+        alert('复制失败，请重试');
     });
 }
 

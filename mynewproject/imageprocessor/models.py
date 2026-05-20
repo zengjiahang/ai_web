@@ -54,6 +54,9 @@ class RAGImageFeature(models.Model):
     shoulder_positions = models.TextField('肩特征位置描述', blank=True)
     step_positions = models.TextField('阶特征位置描述', blank=True)
     
+    # 特征表格数据（包含Feature, Operation, Prior operations, Machine, Tool）
+    feature_table = models.JSONField('特征表格数据', default=list, blank=True)
+    
     # 特征向量（用于相似度计算）
     feature_vector = models.JSONField('特征向量', default=dict, blank=True)
     
@@ -120,26 +123,6 @@ class RAGImageFeature(models.Model):
             'reviewed_at': str(self.reviewed_at) if self.reviewed_at else None
         }
         self.save(update_fields=['feature_vector'])
-    
-    def approve_feature(self, reviewed_by='', review_notes=''):
-        """审核通过特征"""
-        from django.utils import timezone
-        self.approval_status = 'approved'
-        self.reviewed_by = reviewed_by
-        self.review_notes = review_notes
-        self.reviewed_at = timezone.now()
-        self.save()
-        self.update_feature_vector()
-    
-    def reject_feature(self, reviewed_by='', review_notes=''):
-        """拒绝特征"""
-        from django.utils import timezone
-        self.approval_status = 'rejected'
-        self.reviewed_by = reviewed_by
-        self.review_notes = review_notes
-        self.reviewed_at = timezone.now()
-        self.save()
-        self.update_feature_vector()
     
     def has_positions(self):
         """检查是否有位置描述"""

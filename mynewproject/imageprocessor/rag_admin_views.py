@@ -1,10 +1,6 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
-from django.views import View
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
 from django.utils import timezone
 from .models import RAGImageFeature
 import json
@@ -96,20 +92,25 @@ def edit_rag_feature(request, feature_id):
             feature.shoulder_positions = data.get('shoulder_positions', feature.shoulder_positions)
             feature.step_positions = data.get('step_positions', feature.step_positions)
             
+            # 更新工序表格数据（统一转为字典格式）
+            if 'feature_table' in data:
+                from .dual_upload_views import _normalize_table_data
+                feature.feature_table = _normalize_table_data(data['feature_table'])
+
             # 更新审核信息
             if 'approval_status' in data:
                 feature.approval_status = data['approval_status']
                 feature.reviewed_by = request.user.username
                 feature.reviewed_at = timezone.now()
-            
+
             if 'review_notes' in data:
                 feature.review_notes = data['review_notes']
-            
+
             feature.save()
             feature.update_feature_vector()
             
             return JsonResponse({
-                'success': True, 
+                'success': True,
                 'message': 'RAG特征更新成功',
                 'feature': {
                     'id': feature.id,
@@ -118,6 +119,7 @@ def edit_rag_feature(request, feature_id):
                     'chamfer_count': feature.chamfer_count,
                     'shoulder_count': feature.shoulder_count,
                     'step_count': feature.step_count,
+                    'feature_table': feature.feature_table,
                     'approval_status': feature.approval_status,
                     'reviewed_by': feature.reviewed_by,
                     'reviewed_at': str(feature.reviewed_at) if feature.reviewed_at else None
@@ -143,6 +145,7 @@ def edit_rag_feature(request, feature_id):
                 'chamfer_positions': feature.chamfer_positions,
                 'shoulder_positions': feature.shoulder_positions,
                 'step_positions': feature.step_positions,
+                'feature_table': feature.feature_table,
                 'approval_status': feature.approval_status,
                 'reviewed_by': feature.reviewed_by,
                 'reviewed_at': str(feature.reviewed_at) if feature.reviewed_at else None,

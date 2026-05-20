@@ -10,68 +10,178 @@ from .admin_forms import AdminRAGUploadForm
 from .models import ProcessedImage, RAGImageFeature
 from .kimi_service import KimiService
 from .image_matcher import ImageMatcher
-from .advanced_rag_service import AdvancedRAGService
+
+from .rag_views import get_rag_machine_tool_stats
 import json
 import os
+import random
 
 
-def format_features_to_table(features):
+def _normalize_table_data(raw_table):
+    """
+    将前端传来的表格数据统一转为字典格式，兼容 list-of-lists 和 list-of-dicts
+    输出格式: [{'feature': 'F1', 'operation': 'milling', 'prior_operations': 'none', 'machine': 'm1', 'tool': 't1'}, ...]
+    """
+    if not raw_table:
+        return []
+    normalized = []
+    for row in raw_table:
+        if isinstance(row, list):
+            normalized.append({
+                'feature': row[0] if len(row) > 0 else '',
+                'operation': row[1] if len(row) > 1 else '',
+                'prior_operations': row[2] if len(row) > 2 else 'none',
+                'machine': row[3] if len(row) > 3 else '',
+                'tool': row[4] if len(row) > 4 else '',
+            })
+        elif isinstance(row, dict):
+            normalized.append({
+                'feature': row.get('feature', ''),
+                'operation': row.get('operation', ''),
+                'prior_operations': row.get('prior_operations', 'none'),
+                'machine': row.get('machine', ''),
+                'tool': row.get('tool', ''),
+            })
+    return normalized
+
+
+def _weighted_pick(candidates, counts_dict):
+    """
+    根据RAG计数概率加权随机选择，保证多样性
+
+    Args:
+        candidates: 候选列表，如 ['m1', 'm2', 'm4', 'm5']
+        counts_dict: 计数字典，如 {'m1': 10, 'm2': 8, 'm4': 6}
+
+    Returns:
+        按概率随机选中的候选项，若均无计数则返回第一个候选
+    """
+    weights = [counts_dict.get(c, 0) for c in candidates]
+    total = sum(weights)
+    if total == 0:
+        return candidates[0]
+    r = random.random() * total
+    cumulative = 0
+    for c, w in zip(candidates, weights):
+        cumulative += w
+        if r <= cumulative:
+            return c
+    return candidates[-1]
+
+
+def format_features_to_table(features, rag_stats=None):
     """
     将特征数量格式化为表格形式
-    
+
     Args:
         features: 特征数量字典 {'slot': 2, 'hole': 4, 'chamfer': 1, 'shoulder': 0, 'step': 1}
                   或 {'槽特征': 2, '孔特征': 4, '倒角特征': 1, '肩特征': 0, '阶特征': 1}
-    
+        rag_stats: RAG库统计结果，包含每个工序的 machine_counts 和 tool_counts
+
     Returns:
-        list: 表格行数据，每行包含 [Feature, Operation, Prior operations]
+        list: 表格行数据，每行包含 [Feature, Operation, Prior operations, Machine, Tool]
     """
     table_rows = []
     feature_counter = 1
-    
+
     # 支持中英文键名
     slot_count = features.get('slot', 0) or features.get('槽特征', 0)
     hole_count = features.get('hole', 0) or features.get('孔特征', 0)
     chamfer_count = features.get('chamfer', 0) or features.get('倒角特征', 0)
     shoulder_count = features.get('shoulder', 0) or features.get('肩特征', 0)
     step_count = features.get('step', 0) or features.get('阶特征', 0)
-    
-    # 槽特征 - milling，需要两行
+
+    # 获取RAG库各工序的统计计数
+    if rag_stats:
+        milling_machine_counts = rag_stats.get('milling', {}).get('machine_counts', {})
+        milling_tool_counts = rag_stats.get('milling', {}).get('tool_counts', {})
+        drilling_machine_counts = rag_stats.get('drilling', {}).get('machine_counts', {})
+        drilling_tool_counts = rag_stats.get('drilling', {}).get('tool_counts', {})
+        cd_machine_counts = rag_stats.get('centre drilling', {}).get('machine_counts', {})
+        cd_tool_counts = rag_stats.get('centre drilling', {}).get('tool_counts', {})
+    else:
+        milling_machine_counts = {}
+        milling_tool_counts = {}
+        drilling_machine_counts = {}
+        drilling_tool_counts = {}
+        cd_machine_counts = {}
+        cd_tool_counts = {}
+
+    # 槽特征 - 两行milling
     for i in range(slot_count):
         feature_name = f'F{feature_counter}'
-        table_rows.append([feature_name, 'milling', 'none'])
-        table_rows.append([feature_name, 'milling', 'none'])
+        table_rows.append([
+            feature_name, 'milling', 'none',
+            _weighted_pick(['m1', 'm2', 'm4', 'm5'], milling_machine_counts),
+            _weighted_pick(['t1', 't2', 't3', 't4'], milling_tool_counts)
+        ])
+        table_rows.append([
+            feature_name, 'milling', 'none',
+            _weighted_pick(['m1', 'm2', 'm4', 'm5'], milling_machine_counts),
+            _weighted_pick(['t5', 't6', 't15'], milling_tool_counts)
+        ])
         feature_counter += 1
-    
-    # 孔特征 - 分为三行：milling, drilling, centre drilling
+
+    # 孔特征 - 三行：centre drilling, drilling, milling
     for i in range(hole_count):
         feature_name = f'F{feature_counter}'
-        table_rows.append([feature_name, 'milling', 'none'])
-        table_rows.append([feature_name, 'drilling', 'centre drilling, milling'])
-        table_rows.append([feature_name, 'centre drilling', 'centre drilling, drilling, milling'])
+        table_rows.append([
+            feature_name, 'centre drilling', 'none',
+            _weighted_pick(['m1', 'm2', 'm3', 'm4', 'm5'], cd_machine_counts),
+            't10'
+        ])
+        table_rows.append([
+            feature_name, 'drilling', 'none',
+            _weighted_pick(['m1', 'm2', 'm3', 'm4', 'm5'], drilling_machine_counts),
+            _weighted_pick(['t7', 't8', 't9', 't12', 't13', 't14', 't16', 't17'], drilling_tool_counts)
+        ])
+        table_rows.append([
+            feature_name, 'milling', 'drilling',
+            _weighted_pick(['m1', 'm2', 'm4', 'm5'], milling_machine_counts),
+            _weighted_pick(['t1', 't2', 't3', 't4'], milling_tool_counts)
+        ])
         feature_counter += 1
-    
-    # 倒角特征 - 两行milling
+
+    # 倒角特征 - 两行milling（不变）
     for i in range(chamfer_count):
         feature_name = f'F{feature_counter}'
-        table_rows.append([feature_name, 'milling', 'none'])
-        table_rows.append([feature_name, 'milling', 'none'])
+        table_rows.append([
+            feature_name, 'milling', 'none',
+            _weighted_pick(['m1', 'm2', 'm4', 'm5'], milling_machine_counts),
+            _weighted_pick(['t1', 't2', 't3', 't4'], milling_tool_counts)
+        ])
+        table_rows.append([
+            feature_name, 'milling', 'none',
+            _weighted_pick(['m1', 'm2', 'm4', 'm5'], milling_machine_counts),
+            't11'
+        ])
         feature_counter += 1
-    
-    # 肩特征 - 两行milling
+
+    # 肩特征 - 与槽特征规则一致
     for i in range(shoulder_count):
         feature_name = f'F{feature_counter}'
-        table_rows.append([feature_name, 'milling', 'none'])
-        table_rows.append([feature_name, 'milling', 'none'])
+        table_rows.append([
+            feature_name, 'milling', 'none',
+            _weighted_pick(['m1', 'm2', 'm4', 'm5'], milling_machine_counts),
+            _weighted_pick(['t1', 't2', 't3', 't4'], milling_tool_counts)
+        ])
+        table_rows.append([
+            feature_name, 'milling', 'none',
+            _weighted_pick(['m1', 'm2', 'm4', 'm5'], milling_machine_counts),
+            _weighted_pick(['t5', 't6', 't15'], milling_tool_counts)
+        ])
         feature_counter += 1
-    
-    # 阶特征 - 两行milling
+
+    # 阶特征 - 只一行milling
     for i in range(step_count):
         feature_name = f'F{feature_counter}'
-        table_rows.append([feature_name, 'milling', 'none'])
-        table_rows.append([feature_name, 'milling', 'none'])
+        table_rows.append([
+            feature_name, 'milling', 'none',
+            _weighted_pick(['m1', 'm2', 'm4', 'm5'], milling_machine_counts),
+            _weighted_pick(['t1', 't2', 't3', 't4'], milling_tool_counts)
+        ])
         feature_counter += 1
-    
+
     return table_rows
 
 
@@ -191,8 +301,11 @@ class UserImageUploadView(View):
                     feature_counts = result.get('features', {})
                     total_count = result.get('total', 0)
                     
-                    # 格式化特征为表格
-                    table_data = format_features_to_table(feature_counts)
+                    # 获取RAG库统计
+                    rag_stats = get_rag_machine_tool_stats()
+                    
+                    # 格式化特征为表格（包含机器和刀具）
+                    table_data = format_features_to_table(feature_counts, rag_stats)
                     
                     full_result = f"{result['result']}\n\n"
                     
@@ -278,21 +391,36 @@ class UserImageUploadView(View):
                 })
 
 
+def generate_table_api(request):
+    """根据特征数量生成工序表（供管理员录入页调用）"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            features = {
+                'slot': data.get('slot_count', 0),
+                'hole': data.get('hole_count', 0),
+                'chamfer': data.get('chamfer_count', 0),
+                'shoulder': data.get('shoulder_count', 0),
+                'step': data.get('step_count', 0),
+            }
+            rag_stats = get_rag_machine_tool_stats()
+            table_data = format_features_to_table(features, rag_stats)
+            return JsonResponse({'success': True, 'table_data': table_data})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'POST required'})
+
+
 class AdminRAGUploadView(View):
     """管理员RAG上传视图 - 管理员专用上传路径"""
     
     def get(self, request):
         """显示管理员上传页面"""
         form = AdminRAGUploadForm()
-        
-        # 获取RAG统计信息
-        rag_service = AdvancedRAGService()
-        stats = rag_service.get_rag_statistics()
-        
+
         context = {
             'form': form,
-            'upload_type': 'admin_rag',  # 标识为管理员RAG上传
-            'rag_stats': stats,
+            'upload_type': 'admin_rag',
         }
         return render(request, 'imageprocessor/admin_rag_upload.html', context)
     
@@ -326,6 +454,15 @@ class AdminRAGUploadView(View):
                 rag_feature.shoulder_positions = form.cleaned_data['shoulder_positions']
                 rag_feature.step_positions = form.cleaned_data['step_positions']
                 
+                # 保存工序表格数据（统一转为字典格式）
+                feature_table_json = request.POST.get('feature_table_data')
+                if feature_table_json:
+                    try:
+                        raw_table = json.loads(feature_table_json)
+                        rag_feature.feature_table = _normalize_table_data(raw_table)
+                    except json.JSONDecodeError:
+                        pass
+
                 # 管理员上传直接设置为已审核状态
                 rag_feature.approval_status = 'approved'
                 rag_feature.reviewed_by = request.user.username

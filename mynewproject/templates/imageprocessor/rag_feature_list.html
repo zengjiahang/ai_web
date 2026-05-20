@@ -14,9 +14,7 @@
                 <a href="{% url 'imageprocessor:admin_rag_upload' %}" class="btn btn-outline-warning">
                     <i class="fas fa-plus"></i> 新增RAG数据
                 </a>
-                <a href="{% url 'imageprocessor:rag_review' %}" class="btn btn-outline-primary">
-                    <i class="fas fa-check-circle"></i> 特征审核
-                </a>
+
                 <a href="{% url 'imageprocessor:user_upload' %}" class="btn btn-outline-info">
                     <i class="fas fa-arrow-left"></i> 返回用户界面
                 </a>
@@ -220,8 +218,14 @@
                                                    class="btn btn-outline-secondary" title="查看结果" target="_blank">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
-                                                <button type="button" 
-                                                        class="btn btn-outline-danger" 
+                                                <button type="button"
+                                                        class="btn btn-outline-info"
+                                                        title="查看工序表"
+                                                        onclick="showTableModal({{ rag_feature.id }})">
+                                                    <i class="fas fa-table"></i>
+                                                </button>
+                                                <button type="button"
+                                                        class="btn btn-outline-danger"
                                                         title="删除特征"
                                                         onclick="confirmDeleteFeature({{ rag_feature.id }})">
                                                     <i class="fas fa-trash"></i>
@@ -296,11 +300,149 @@
     </div>
 </div>
 
+<!-- 表格数据模态框（可编辑） -->
+<div class="modal fade" id="tableModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-table"></i> 工序表 <small class="text-muted" id="tableModalFeatureLabel"></small></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead>
+                            <tr>
+                                <th>Feature</th>
+                                <th>Operation</th>
+                                <th>Prior operations</th>
+                                <th>Machine</th>
+                                <th>Tool</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableModalBody"></tbody>
+                    </table>
+                </div>
+                <div id="tableModalEmpty" class="text-center text-muted py-4" style="display:none;">
+                    <i class="fas fa-info-circle"></i> 暂无工序表数据
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="addModalTableRow()">
+                    <i class="fas fa-plus"></i> 添加行
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" onclick="saveTableModal()">
+                    <i class="fas fa-save"></i> 保存工序表
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+// RAG特征表格数据
+const featureTableDataMap = {{ feature_table_data|safe }};
+
 function showImageModal(imageUrl) {
     const modal = new bootstrap.Modal(document.getElementById('imageModal'));
     document.getElementById('modalImage').src = imageUrl;
     modal.show();
+}
+
+let currentEditingFeatureId = null;
+
+function makeModalRow(feature, operation, prior, machine, tool) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input type="text" class="form-control form-control-sm" value="${feature || ''}"></td>
+        <td>
+            <select class="form-select form-select-sm">
+                <option value="milling" ${operation === 'milling' ? 'selected' : ''}>milling</option>
+                <option value="drilling" ${operation === 'drilling' ? 'selected' : ''}>drilling</option>
+                <option value="centre drilling" ${operation === 'centre drilling' ? 'selected' : ''}>centre drilling</option>
+            </select>
+        </td>
+        <td><input type="text" class="form-control form-control-sm" value="${prior || 'none'}"></td>
+        <td><input type="text" class="form-control form-control-sm" value="${machine || ''}"></td>
+        <td><input type="text" class="form-control form-control-sm" value="${tool || ''}"></td>
+        <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()"><i class="fas fa-trash"></i></button></td>
+    `;
+    return tr;
+}
+
+function addModalTableRow() {
+    const tbody = document.getElementById('tableModalBody');
+    tbody.appendChild(makeModalRow('', 'milling', 'none', '', ''));
+    document.getElementById('tableModalEmpty').style.display = 'none';
+}
+
+function getRowValues(row) {
+    // 兼容数组格式和字典格式
+    if (Array.isArray(row)) {
+        return [row[0] || '', row[1] || '', row[2] || 'none', row[3] || '', row[4] || ''];
+    }
+    return [
+        row.feature || '', row.operation || '',
+        row.prior_operations || 'none', row.machine || '', row.tool || ''
+    ];
+}
+
+function showTableModal(featureId) {
+    currentEditingFeatureId = featureId;
+    const tableData = featureTableDataMap[featureId];
+    const tbody = document.getElementById('tableModalBody');
+    const emptyHint = document.getElementById('tableModalEmpty');
+    const label = document.getElementById('tableModalFeatureLabel');
+    label.textContent = `(特征 #${featureId})`;
+    tbody.innerHTML = '';
+
+    if (tableData && tableData.length > 0) {
+        emptyHint.style.display = 'none';
+        tableData.forEach(row => {
+            const vals = getRowValues(row);
+            tbody.appendChild(makeModalRow(vals[0], vals[1], vals[2], vals[3], vals[4]));
+        });
+    } else {
+        emptyHint.style.display = 'block';
+    }
+    const modal = new bootstrap.Modal(document.getElementById('tableModal'));
+    modal.show();
+}
+
+function saveTableModal() {
+    if (!currentEditingFeatureId) return;
+    const rows = document.querySelectorAll('#tableModalBody tr');
+    const tableData = [];
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('input, select');
+        if (cells.length >= 5) {
+            tableData.push([cells[0].value, cells[1].value, cells[2].value, cells[3].value, cells[4].value]);
+        }
+    });
+
+    fetch(`/rag/edit/${currentEditingFeatureId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ feature_table: tableData })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            featureTableDataMap[currentEditingFeatureId] = tableData;
+            alert('工序表保存成功！');
+            bootstrap.Modal.getInstance(document.getElementById('tableModal')).hide();
+        } else {
+            alert('保存失败：' + (data.error || '未知错误'));
+        }
+    })
+    .catch(e => {
+        alert('请求失败：' + e.message);
+    });
 }
 
 function toggleAllSelection() {

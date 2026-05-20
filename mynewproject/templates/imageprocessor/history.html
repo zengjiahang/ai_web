@@ -23,6 +23,7 @@
                             <th>Upload Time</th>
                             <th>Analysis Status</th>
                             <th>Feature Counts</th>
+                            <th>Process Selections</th>
                             <th>Quick Result</th>
                             <th>Actions</th>
                         </tr>
@@ -71,6 +72,27 @@
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}
+                            </td>
+                            <td>
+                                {% with process_selections=image.process_selections.all %}
+                                    {% if process_selections %}
+                                        <div style="max-width: 400px; max-height: 80px; overflow-y: auto; font-size: 0.75rem;">
+                                            {% for selection in process_selections %}
+                                                <div class="mb-1">
+                                                    <strong>{{ selection.feature_name }}</strong> - 
+                                                    <span class="badge bg-secondary">{{ selection.operation }}</span>
+                                                    <br>
+                                                    <span class="text-muted">
+                                                        机器: <span class="text-primary">{{ selection.machine|default:"-" }}</span> | 
+                                                        刀具: <span class="text-success">{{ selection.tool|default:"-" }}</span>
+                                                    </span>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted small">未选择</span>
+                                    {% endif %}
+                                {% endwith %}
                             </td>
                             <td>
                                 {% if image.result %}

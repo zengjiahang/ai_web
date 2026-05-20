@@ -14,47 +14,11 @@
         </div>
     </div>
     
-    <!-- 统计信息 -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card text-center bg-info text-white">
-                <div class="card-body">
-                    <h4 class="mb-0">{{ rag_stats.total_features }}</h4>
-                    <small>总RAG特征</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center bg-success text-white">
-                <div class="card-body">
-                    <h4 class="mb-0">{{ rag_stats.approved_features }}</h4>
-                    <small>已审核</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center bg-warning text-white">
-                <div class="card-body">
-                    <h4 class="mb-0">{{ rag_stats.pending_features }}</h4>
-                    <small>待审核</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center bg-primary text-white">
-                <div class="mb-0">{{ rag_stats.approval_rate|floatformat:1 }}%</div>
-                <small>审核率</small>
-            </div>
-        </div>
-    </div>
-    
     <!-- 快速导航 -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="btn-group" role="group">
-                <a href="{% url 'imageprocessor:rag_review' %}" class="btn btn-outline-primary">
-                    <i class="fas fa-check-circle"></i> 特征审核
-                </a>
+
                 <a href="{% url 'imageprocessor:user_upload' %}" class="btn btn-outline-info">
                     <i class="fas fa-arrow-left"></i> 返回用户界面
                 </a>
@@ -172,7 +136,7 @@
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i>
                             <strong>特征位置标注（可选）</strong><br>
-                            如果需要记录特征在图片中的具体位置，请输入坐标数据。格式如：[[100, 150], [200, 250]]
+                            如果需要记录特征在图片中的具体位置，请输入位置描述信息。
                         </div>
                         
                         <div class="row mb-3">
@@ -258,9 +222,41 @@
                             {% endif %}
                         </div>
                         
+                        <!-- 工序表格数据 -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0"><strong>工序表格数据</strong></label>
+                                <button type="button" class="btn btn-sm btn-primary" id="generateTableBtn" onclick="generateFeatureTable()">
+                                    <i class="fas fa-magic"></i> 生成工序表
+                                </button>
+                            </div>
+                            <div class="form-text mb-2">点击"生成工序表"根据特征数量自动生成，生成后可编辑。</div>
+                            <div id="tableEditorContainer" style="display:none;">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-sm" id="featureTableEditor">
+                                        <thead>
+                                            <tr>
+                                                <th>Feature</th>
+                                                <th>Operation</th>
+                                                <th>Prior operations</th>
+                                                <th>Machine</th>
+                                                <th>Tool</th>
+                                                <th>操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="featureTableEditorBody"></tbody>
+                                    </table>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="addTableRow()">
+                                    <i class="fas fa-plus"></i> 添加行
+                                </button>
+                            </div>
+                            <input type="hidden" name="feature_table_data" id="featureTableDataInput">
+                        </div>
+
                         <!-- 提交按钮 -->
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-warning btn-lg">
+                            <button type="submit" class="btn btn-warning btn-lg" onclick="prepareSubmit()">
                                 <i class="fas fa-save"></i> 录入RAG数据
                             </button>
                             <a href="{% url 'imageprocessor:rag_feature_list' %}" class="btn btn-outline-secondary">
@@ -274,7 +270,7 @@
         
         <div class="col-lg-4">
             <!-- 录入指南 -->
-            <div class="card shadow-sm mb-4">
+            <div class="card shadow-sm">
                 <div class="card-header bg-secondary text-white">
                     <h6 class="mb-0">
                         <i class="fas fa-lightbulb"></i> 录入指南
@@ -284,26 +280,10 @@
                     <ul class="small text-muted mb-0">
                         <li>选择特征清晰、角度合适的图片</li>
                         <li>准确统计每种特征的数量</li>
-                        <li>特征位置坐标可选填</li>
+                        <li>特征位置描述可选填</li>
                         <li>图片分辨率建议800x600以上</li>
                         <li>录入的数据将直接加入RAG库</li>
                     </ul>
-                </div>
-            </div>
-            
-            <!-- 坐标格式说明 -->
-            <div class="card shadow-sm">
-                <div class="card-header bg-info text-white">
-                    <h6 class="mb-0">
-                        <i class="fas fa-map-marker-alt"></i> 坐标格式说明
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <p class="small text-muted mb-2">坐标格式：</p>
-                    <code class="small d-block bg-light p-2 rounded">
-                        [[x1, y1], [x2, y2], ...]
-                    </code>
-                    <p class="small text-muted mt-2 mb-0">例如：[[100, 150], [200, 250]]</p>
                 </div>
             </div>
         </div>
@@ -311,37 +291,110 @@
 </div>
 
 <script>
+function getFeatureCounts() {
+    return {
+        slot_count: parseInt(document.querySelector('[name="slot_count"]').value) || 0,
+        hole_count: parseInt(document.querySelector('[name="hole_count"]').value) || 0,
+        chamfer_count: parseInt(document.querySelector('[name="chamfer_count"]').value) || 0,
+        shoulder_count: parseInt(document.querySelector('[name="shoulder_count"]').value) || 0,
+        step_count: parseInt(document.querySelector('[name="step_count"]').value) || 0
+    };
+}
+
+async function generateFeatureTable() {
+    const counts = getFeatureCounts();
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    if (total === 0) {
+        alert('请先填写特征数量！');
+        return;
+    }
+    try {
+        const resp = await fetch('{% url "imageprocessor:generate_table" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(counts)
+        });
+        const data = await resp.json();
+        if (data.success && data.table_data.length > 0) {
+            populateTableEditor(data.table_data);
+            document.getElementById('tableEditorContainer').style.display = 'block';
+        } else {
+            alert('生成失败：' + (data.error || '无数据'));
+        }
+    } catch (e) {
+        alert('请求失败：' + e.message);
+    }
+}
+
+function populateTableEditor(rows) {
+    const tbody = document.getElementById('featureTableEditorBody');
+    tbody.innerHTML = '';
+    rows.forEach(row => {
+        addTableRowWithData(row[0], row[1], row[2], row[3], row[4]);
+    });
+}
+
+function addTableRowWithData(feature, operation, prior, machine, tool) {
+    const tbody = document.getElementById('featureTableEditorBody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input type="text" class="form-control form-control-sm" value="${feature || ''}"></td>
+        <td>
+            <select class="form-select form-select-sm">
+                <option value="milling" ${operation === 'milling' ? 'selected' : ''}>milling</option>
+                <option value="drilling" ${operation === 'drilling' ? 'selected' : ''}>drilling</option>
+                <option value="centre drilling" ${operation === 'centre drilling' ? 'selected' : ''}>centre drilling</option>
+            </select>
+        </td>
+        <td><input type="text" class="form-control form-control-sm" value="${prior || 'none'}"></td>
+        <td><input type="text" class="form-control form-control-sm" value="${machine || ''}"></td>
+        <td><input type="text" class="form-control form-control-sm" value="${tool || ''}"></td>
+        <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()"><i class="fas fa-trash"></i></button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function addTableRow() {
+    addTableRowWithData('', 'milling', 'none', '', '');
+}
+
+function prepareSubmit() {
+    const rows = document.querySelectorAll('#featureTableEditorBody tr');
+    const tableData = [];
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('input, select');
+        if (cells.length >= 5) {
+            tableData.push([
+                cells[0].value,
+                cells[1].value,
+                cells[2].value,
+                cells[3].value,
+                cells[4].value
+            ]);
+        }
+    });
+    document.getElementById('featureTableDataInput').value = JSON.stringify(tableData);
+}
+
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    // 表单验证
     const form = document.getElementById('ragUploadForm');
     form.addEventListener('submit', function(e) {
-        const slotCount = parseInt(document.querySelector('[name="slot_count"]').value) || 0;
-        const holeCount = parseInt(document.querySelector('[name="hole_count"]').value) || 0;
-        const chamferCount = parseInt(document.querySelector('[name="chamfer_count"]').value) || 0;
-        const shoulderCount = parseInt(document.querySelector('[name="shoulder_count"]').value) || 0;
-        const stepCount = parseInt(document.querySelector('[name="step_count"]').value) || 0;
-        
-        const totalCount = slotCount + holeCount + chamferCount + shoulderCount + stepCount;
-        
-        if (totalCount === 0) {
+        prepareSubmit();
+        const counts = getFeatureCounts();
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
+        if (total === 0) {
             e.preventDefault();
             alert('请至少录入一个特征数量！');
             return false;
-        }
-        
-        // 验证坐标格式
-        const positionFields = ['slot_positions', 'hole_positions', 'chamfer_positions', 'shoulder_positions', 'step_positions'];
-        for (let field of positionFields) {
-            const input = document.querySelector(`[name="${field}"]`);
-            if (input.value.trim()) {
-                try {
-                    JSON.parse(input.value);
-                } catch (e) {
-                    e.preventDefault();
-                    alert(`${input.previousElementSibling.textContent} 的坐标格式不正确！`);
-                    return false;
-                }
-            }
         }
     });
 });

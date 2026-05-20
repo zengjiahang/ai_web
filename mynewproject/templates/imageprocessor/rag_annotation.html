@@ -195,43 +195,7 @@
         </div>
     </div>
     
-    <!-- 相似图片推荐 -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">🔍 相似图片推荐</h5>
-                </div>
-                <div class="card-body">
-                    {% if similar_images %}
-                        <div class="row">
-                            {% for similar in similar_images %}
-                            <div class="col-md-4 mb-3">
-                                <div class="card h-100">
-                                    <img src="{{ similar.image.image.url }}" class="card-img-top" 
-                                         alt="相似图片" style="max-height: 150px; object-fit: cover;">
-                                    <div class="card-body p-2">
-                                        <h6 class="card-title small">图片ID: {{ similar.image.id }}</h6>
-                                        <p class="card-text small text-muted">
-                                            相似度: {{ similar.similarity|floatformat:1 }}%<br>
-                                            槽: {{ similar.features.slot }} | 孔: {{ similar.features.hole }} | 倒角: {{ similar.features.chamfer }}<br>
-                                            肩: {{ similar.features.shoulder }} | 阶: {{ similar.features.step }}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="text-center text-muted">
-                            <i class="fas fa-info-circle"></i>
-                            <p>暂无相似图片推荐</p>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
+
 </div>
 
 <script>

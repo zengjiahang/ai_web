@@ -16,14 +16,15 @@ urlpatterns = [
     # 工艺选择API
     path('api/save-process-selections/', views.SaveProcessSelectionsAPIView.as_view(), name='save_process_selections'),
     path('api/get-process-selections/', views.GetProcessSelectionsAPIView.as_view(), name='get_process_selections'),
+    path('api/save-table-data/', views.SaveTableDataAPIView.as_view(), name='save_table_data'),
     
     # 管理员RAG上传路径 - 避免与admin冲突
     path('rag-admin/upload/', dual_upload_views.AdminRAGUploadView.as_view(), name='admin_rag_upload'),
+    path('api/generate-table/', dual_upload_views.generate_table_api, name='generate_table'),
     
     # RAG相关URL
     path('rag/annotate/<int:image_id>/', rag_views.RAGAnnotationView.as_view(), name='rag_annotation'),
     path('rag/features/', rag_views.rag_feature_list, name='rag_feature_list'),
-    path('rag/review/', rag_views.RAGReviewView.as_view(), name='rag_review'),
     path('rag/feature/<int:feature_id>/', rag_views.rag_feature_detail, name='rag_feature_detail'),
     
     # 管理员功能

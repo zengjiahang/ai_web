@@ -132,49 +132,8 @@
         </div>
     </div>
 
-    {% if similar_images %}
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0"><i class="fas fa-images"></i> 相似图片 ({{ similar_images|length }}张)</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        {% for similar in similar_images %}
-                        <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
-                            <div class="card h-100">
-                                <div class="card-header bg-light">
-                                    <small class="text-muted">相似度: {{ similar.similarity|floatformat:1 }}%</small>
-                                </div>
-                                <div class="card-body text-center">
-                                    <img src="{{ similar.image.image.url }}" 
-                                         alt="相似图片" 
-                                         class="img-fluid rounded mb-2"
-                                         style="max-height: 120px; cursor: pointer;"
-                                         onclick="showImageModal('{{ similar.image.image.url }}')"
-                                         title="点击查看大图">
-                                    <div class="small text-muted">
-                                        <div>槽:{{ similar.features.slot_count }} 孔:{{ similar.features.hole_count }}</div>
-                                        <div>倒角:{{ similar.features.chamfer_count }} 肩:{{ similar.features.shoulder_count }}</div>
-                                        <div>阶:{{ similar.features.step_count }}</div>
-                                    </div>
-                                </div>
-                                <div class="card-footer bg-light">
-                                    <a href="{% url 'imageprocessor:rag_feature_detail' similar.features.id %}" 
-                                       class="btn btn-sm btn-outline-primary w-100">
-                                        <i class="fas fa-eye"></i> 查看详情
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
+
+
 
     {% if rag_feature.feature_vector %}
     <div class="row mt-4">
@@ -273,7 +232,7 @@ function confirmDeleteFeature(featureId) {
         .then(data => {
             if (data.success) {
                 alert('特征删除成功！');
-                window.location.href = '{% url "imageprocessor:rag_feature_list" }';
+                window.location.href = '{% url "imageprocessor:rag_feature_list" %}';
             } else {
                 alert('删除失败: ' + data.error);
             }

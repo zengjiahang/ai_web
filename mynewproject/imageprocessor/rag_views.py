@@ -2,8 +2,6 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views import View
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.utils.decorators import method_decorator
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .models import ProcessedImage, RAGImageFeature
 from .forms import RAGFeatureAnnotationForm
@@ -11,105 +9,16 @@ from .advanced_rag_service import AdvancedRAGService
 import json
 
 
-class RAGReviewView(View):
-    """RAG特征审核管理视图"""
-    
-    def get(self, request):
-        """显示待审核列表"""
-        # 获取所有待审核的RAG特征
-        pending_features = RAGImageFeature.objects.filter(
-            approval_status='pending_review'
-        ).select_related('processed_image').order_by('-created_at')
-        
-        # 获取已审核的RAG特征（最近20个）
-        reviewed_features = RAGImageFeature.objects.filter(
-            approval_status__in=['approved', 'rejected']
-        ).select_related('processed_image').order_by('-reviewed_at')[:20]
-        
-        # 获取统计信息
-        rag_service = AdvancedRAGService()
-        stats = rag_service.get_rag_statistics()
-        
-        context = {
-            'pending_features': pending_features,
-            'reviewed_features': reviewed_features,
-            'stats': stats,
-        }
-        
-        return render(request, 'imageprocessor/rag_review.html', context)
-    
-    def post(self, request):
-        """处理审核操作"""
-        feature_id = request.POST.get('feature_id')
-        action = request.POST.get('action')  # approve or reject
-        review_notes = request.POST.get('review_notes', '')
-        
-        try:
-            rag_feature = get_object_or_404(RAGImageFeature, id=feature_id)
-            
-            if action == 'approve':
-                # 获取人工修正的特征数量
-                approved_features = {
-                    'slot': int(request.POST.get('slot_count', rag_feature.slot_count)),
-                    'hole': int(request.POST.get('hole_count', rag_feature.hole_count)),
-                    'chamfer': int(request.POST.get('chamfer_count', rag_feature.chamfer_count)),
-                    'shoulder': int(request.POST.get('shoulder_count', rag_feature.shoulder_count)),
-                    'step': int(request.POST.get('step_count', rag_feature.step_count)),
-                }
-                
-                # 获取人工修正的位置描述
-                approved_positions = {
-                    'slot': request.POST.get('slot_positions', rag_feature.slot_positions),
-                    'hole': request.POST.get('hole_positions', rag_feature.hole_positions),
-                    'chamfer': request.POST.get('chamfer_positions', rag_feature.chamfer_positions),
-                    'shoulder': request.POST.get('shoulder_positions', rag_feature.shoulder_positions),
-                    'step': request.POST.get('step_positions', rag_feature.step_positions),
-                }
-                
-                # 审核通过
-                rag_service = AdvancedRAGService()
-                rag_service.approve_rag_feature(
-                    rag_feature, 
-                    approved_features, 
-                    approved_positions
-                )
-                
-                messages.success(request, f'✅ 特征 #{feature_id} 审核通过！')
-                
-            elif action == 'reject':
-                # 拒绝特征
-                rag_feature.reject_feature(
-                    reviewed_by=request.user.username if request.user.is_authenticated else 'admin',
-                    review_notes=review_notes
-                )
-                
-                messages.warning(request, f'⚠️ 特征 #{feature_id} 已拒绝')
-            
-            else:
-                messages.error(request, '❌ 无效的操作')
-                
-        except Exception as e:
-            messages.error(request, f'❌ 审核失败: {str(e)}')
-        
-        return redirect('imageprocessor:rag_review')
-
 
 def rag_feature_detail(request, feature_id):
     """RAG特征详情页面"""
     rag_feature = get_object_or_404(RAGImageFeature, id=feature_id)
-    
-    # 查找相似图片（基于已审核的特征）
-    rag_service = AdvancedRAGService()
-    similar_images = rag_service.find_similar_images_for_new_upload(
-        rag_feature.feature_vector
-    )
-    
+
     context = {
         'rag_feature': rag_feature,
-        'similar_images': similar_images,
         'processed_image': rag_feature.processed_image,
     }
-    
+
     return render(request, 'imageprocessor/rag_feature_detail.html', context)
 
 
@@ -133,17 +42,11 @@ class RAGAnnotationView(View):
         # 创建表单
         form = RAGFeatureAnnotationForm(instance=rag_feature)
         
-        # 查找相似图片（基于已审核的特征）
-        similar_images = rag_service.find_similar_images_for_new_upload(
-            rag_feature.feature_vector
-        )
-        
         context = {
             'processed_image': processed_image,
             'rag_feature': rag_feature,
             'form': form,
             'feature_vector': rag_feature.feature_vector if rag_feature.feature_vector else {},
-            'similar_images': similar_images,
         }
         
         return render(request, 'imageprocessor/rag_annotation.html', context)
@@ -165,6 +68,17 @@ class RAGAnnotationView(View):
         
         if form.is_valid():
             rag_feature = form.save()
+            
+            # 保存表格数据
+            feature_table_data = request.POST.get('feature_table')
+            if feature_table_data:
+                try:
+                    feature_table = json.loads(feature_table_data)
+                    rag_feature.feature_table = feature_table
+                except json.JSONDecodeError:
+                    pass
+            
+            rag_feature.save()
             
             # 更新特征向量
             rag_feature.update_feature_vector()
@@ -231,6 +145,75 @@ def rag_feature_list(request):
         'total_approved': all_approved.count(),
         'annotated_features': all_approved.count(),
         'feature_stats': feature_stats,
+        'feature_table_data': {rag.id: rag.feature_table for rag in rag_features_page if rag.feature_table}
     }
     
     return render(request, 'imageprocessor/rag_feature_list.html', context)
+
+
+def get_rag_machine_tool_stats():
+    """
+    统计RAG库中机器和刀具的使用次数
+    
+    Returns:
+        dict: 每个工序最常用的机器和刀具
+        {
+            'milling': {'machine': 'm1m2', 'tool': 't1', 'machine_counts': {'m1m2': 10, 'm3m4': 8}, 'tool_counts': {'t1': 12, 't2': 8}},
+            'drilling': {'machine': 'm1', 'tool': 't7', 'machine_counts': {'m1': 5, 'm2': 3}, 'tool_counts': {'t7': 6, 't8': 4}},
+            'centre drilling': {'machine': 'm3', 'tool': 't10', 'machine_counts': {'m3': 15, 'm1': 10}, 'tool_counts': {'t10': 20}}
+        }
+    """
+    from collections import defaultdict
+    
+    # 获取所有已审核且有表格数据的RAG特征
+    approved_rags = RAGImageFeature.objects.filter(
+        approval_status='approved',
+        feature_table__isnull=False
+    )
+    
+    # 统计每个工序的机器和刀具使用次数
+    stats = {
+        'milling': {'machine_counts': defaultdict(int), 'tool_counts': defaultdict(int)},
+        'drilling': {'machine_counts': defaultdict(int), 'tool_counts': defaultdict(int)},
+        'centre drilling': {'machine_counts': defaultdict(int), 'tool_counts': defaultdict(int)}
+    }
+    
+    for rag in approved_rags:
+        if not rag.feature_table:
+            continue
+            
+        for row in rag.feature_table:
+            operation = row.get('operation')
+            if operation in stats:
+                machine = row.get('machine', '')
+                tool = row.get('tool', '')
+                
+                if machine:
+                    machines = [m.strip() for m in machine.split(',')]
+                    for m in machines:
+                        stats[operation]['machine_counts'][m] += 1
+                if tool:
+                    # 处理多个工具的情况（如 "t1,t2"）
+                    tools = [t.strip() for t in tool.split(',')]
+                    for t in tools:
+                        stats[operation]['tool_counts'][t] += 1
+    
+    # 找出每个工序最常用的机器和刀具
+    result = {}
+    for operation, data in stats.items():
+        machine_counts = data['machine_counts']
+        tool_counts = data['tool_counts']
+        
+        # 找出使用次数最多的机器
+        most_used_machine = max(machine_counts.items(), key=lambda x: x[1])[0] if machine_counts else ''
+        # 找出使用次数最多的刀具
+        most_used_tool = max(tool_counts.items(), key=lambda x: x[1])[0] if tool_counts else ''
+        
+        result[operation] = {
+            'machine': most_used_machine,
+            'tool': most_used_tool,
+            'machine_counts': dict(machine_counts),
+            'tool_counts': dict(tool_counts)
+        }
+    
+    return result
